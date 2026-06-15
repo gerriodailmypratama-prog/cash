@@ -1,4 +1,4 @@
--- 0003_pr_cl03_credit_cards.sql
+-- 0004_pr_cl03_credit_cards.sql  (renumbered from 0003 -- PR #4, also PR-CL03, merged a 0003 migration first; AGENTS.md collision rule => take next free number)
 -- PR-CL03 :: Phase 1 Credit Cards (cards + installments + ledger-derived views)
 -- GerrioFin. Additive-first, idempotent, nullable-first, soft-delete via _active views.
 -- A credit card == a LIABILITY account in the chart of accounts (accounts.id).
