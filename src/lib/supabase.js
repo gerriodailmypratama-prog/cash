@@ -1,20 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Read from Vite env (never hardcode keys). See .env.example.
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const url = import.meta.env.VITE_SUPABASE_URL;
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
-    '[supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. ' +
-      'Copy .env.example to .env and fill in your project values.'
-  );
+let _client = null;
+
+export function getSupabase() {
+  if (!url || !anonKey) {
+    console.warn('[supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
+    throw new Error('Supabase belum dikonfigurasi (env vars belum di-set).');
+  }
+  if (!_client) {
+    _client = createClient(url, anonKey, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
+  }
+  return _client;
 }
 
-export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  }
-});
+export const isSupabaseConfigured = Boolean(url && anonKey);
