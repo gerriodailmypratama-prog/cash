@@ -4,10 +4,7 @@
   "name": "gerriofin-cash",
   "compatibility_date": "2024-11-01",
   "compatibility_flags": ["nodejs_compat"],
-  "pages_build_output_dir": ".svelte-kit/cloudflare",
-  // Public client-side Supabase config (anon key is a publishable key, safe in browser, protected by RLS).
-  "vars": {
-    "VITE_SUPABASE_URL": "https://ryuwnsxwtwfmndnbysxw.supabase.co",
-    "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5dXduc3h3dHdmbW5kbmJ5c3h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MjY5NDksImV4cCI6MjA5MzAwMjk0OX0.XXD8FA8VAI6E5AdlyUIINRvv1R8y_MBKxHtbvvhBnl8"
-  }
+  "pages_build_output_dir": ".svelte-kit/cloudflare"
+  // NOTE: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are BUILD-time env vars.
+  // Set them in Cloudflare dashboard > Pages > cash > Settings > Environment variables (Production).
 }
