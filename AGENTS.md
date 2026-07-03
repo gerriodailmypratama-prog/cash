@@ -172,7 +172,9 @@ Keep it short. The owner reads this from a warehouse floor, often mid live-sessi
 | Freeze window | _none_ |
 | Extra docs | _none yet — repo-specific gotchas go in `docs/agents/` when created_ |
 
-> **Known gotcha (⚠️ RED-lane, owner action):** the `_active` / `account_balances` views were created without `security_invoker`, so they run with the view-owner's rights and **bypass RLS**. The public **anon** key can therefore read all ledger rows (entities, accounts, balances) without logging in. Writes are still protected (base-table RLS: only `authenticated` can insert/update). Tightening this is RLS work → RED lane, owner-approved only.
+> **Security model (since 0005, owner-approved 2026-07-04):** all views are `security_invoker` + anon's SELECT on views is revoked, so the public anon key can read/write **nothing** — every read and write requires an `authenticated` session (base tables: RLS policies from 0003 + 0005). The app enforces this UX-side with a route guard (PR-CL08). Any change to RLS/policies/grants stays 🔴 RED lane.
+>
+> **Shared-project gotcha:** `public.items` (~230 rows, WMS-side) is still anon-readable — that fix belongs to the WMS repo, not this one.
 
 ---
 
