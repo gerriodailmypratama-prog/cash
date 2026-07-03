@@ -5,6 +5,7 @@
   let cards = $state([]);
   let installments = $state([]);
   let reminders = $state([]);
+  let memos = $state(new Map());
   let loading = $state(true);
   let errorMsg = $state('');
 
@@ -24,17 +25,47 @@
     return 'ok';
   }
 
+  // ---- float strategy: card whose NEXT statement close is furthest away wins ----
+  function daysInMonth(y, m) {
+    return new Date(y, m + 1, 0).getDate();
+  }
+  function daysUntilNextStatement(statementDay, today = new Date()) {
+    if (!statementDay) return null;
+    const d = today.getDate();
+    const dim = daysInMonth(today.getFullYear(), today.getMonth());
+    const sd = Math.min(statementDay, dim);
+    if (sd > d) return sd - d;                      // closes later this month
+    const dimNext = daysInMonth(today.getFullYear(), today.getMonth() + 1);
+    return (dim - d) + Math.min(statementDay, dimNext); // wraps to next month
+  }
+
+  let summary = $derived({
+    limit: cards.reduce((s, c) => s + Number(c.credit_limit || 0), 0),
+    owing: cards.reduce((s, c) => s + Number(c.current_balance || 0), 0),
+    available: cards.reduce((s, c) => s + Number(c.available || 0), 0)
+  });
+
+  let ranking = $derived(
+    cards
+      .map((c) => ({ ...c, floatDays: daysUntilNextStatement(c.statement_day) }))
+      .filter((c) => c.floatDays != null && !c.over_limit && Number(c.credit_limit || 0) > 0)
+      .sort((a, b) => b.floatDays - a.floatDays)
+  );
+  let bestCard = $derived(ranking[0] ?? null);
+
   onMount(async () => {
     try {
-      const [c, i, r] = await Promise.all([
+      const [c, i, r, m] = await Promise.all([
         supabase.from('credit_card_status').select('*').order('card_name'),
         supabase.from('cc_installments_active').select('*'),
-        supabase.from('cc_due_reminders').select('*')
+        supabase.from('cc_due_reminders').select('*'),
+        supabase.from('credit_cards_active').select('account_id, memo')
       ]);
       if (c.error) throw c.error;
       cards = c.data ?? [];
       installments = i.data ?? [];
       reminders = r.data ?? [];
+      memos = new Map((m.data ?? []).filter((x) => x.memo).map((x) => [x.account_id, x.memo]));
     } catch (e) {
       errorMsg = e?.message ?? 'Gagal memuat data kartu.';
     } finally {
@@ -43,10 +74,10 @@
   });
 </script>
 
-<svelte:head><title>Kas — Credit Cards</title></svelte:head>
+<svelte:head><title>Kas — Kartu Kredit</title></svelte:head>
 
 <section>
-  <h1>Credit Cards</h1>
+  <h1>Kartu Kredit</h1>
   <p class="lead">Limit, tagihan, jatuh tempo, dan cicilan jalan.</p>
 
   {#if loading}
@@ -56,6 +87,29 @@
   {:else if cards.length === 0}
     <div class="card"><p class="muted">Belum ada kartu kredit. Tambahkan kartu sebagai akun LIABILITY lalu daftarkan di tabel credit_cards.</p></div>
   {:else}
+    {#if bestCard}
+      <div class="card best">
+        <span class="best-label">💳 Gesek hari ini</span>
+        <div class="best-row">
+          <span class="best-name">{bestCard.card_name}</span>
+          <span class="best-float">invoice berikutnya <b>{bestCard.floatDays} hari</b> lagi</span>
+        </div>
+        {#if ranking.length > 1}
+          <div class="runner-up">
+            {#each ranking.slice(1, 3) as r}
+              <span>{r.card_name} · {r.floatDays}h</span>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    <div class="card totals">
+      <div><span class="muted">Total limit</span><span class="tot">{fmt(summary.limit)}</span></div>
+      <div><span class="muted">Tagihan</span><span class="tot">{fmt(summary.owing)}</span></div>
+      <div><span class="muted">Tersedia</span><span class="tot ok-text">{fmt(summary.available)}</span></div>
+    </div>
+
     <div class="stack">
       {#each cards as card (card.account_id)}
         {@const rem = reminderFor(card.account_id)}
@@ -103,6 +157,10 @@
               {/each}
             </div>
           {/if}
+
+          {#if memos.get(card.account_id)}
+            <p class="memo-flag">⚠ {memos.get(card.account_id)}</p>
+          {/if}
         </div>
       {/each}
     </div>
@@ -144,4 +202,20 @@
 
   .installments { margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.3rem; }
   .inst-row { display: flex; justify-content: space-between; font-size: 0.88rem; }
+
+  .best { border-color: var(--primary); margin-bottom: 0.75rem; }
+  .best-label { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; color: var(--primary); }
+  .best-row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-top: 0.3rem; }
+  .best-name { font-size: 1.2rem; font-weight: 700; }
+  .best-float { color: var(--text-muted); font-size: 0.85rem; }
+  .best-float b { color: var(--text); }
+  .runner-up { display: flex; gap: 1rem; margin-top: 0.4rem; font-size: 0.78rem; color: var(--text-dim); }
+
+  .totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; }
+  .totals div { display: flex; flex-direction: column; gap: 0.15rem; }
+  .totals .muted { font-size: 0.75rem; }
+  .tot { font-weight: 700; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+  .ok-text { color: var(--primary); }
+
+  .memo-flag { margin: 0.6rem 0 0; font-size: 0.78rem; color: var(--warning); }
 </style>
