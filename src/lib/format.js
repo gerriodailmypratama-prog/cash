@@ -1,4 +1,4 @@
-// Shared formatting helpers (GerrioFin).
+// Shared formatting helpers (Kas).
 
 /** Format a number as Indonesian Rupiah without the "Rp" prefix (caller adds it). */
 export function rupiah(n) {

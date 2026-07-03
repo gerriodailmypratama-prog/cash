@@ -1,7 +1,7 @@
 {
-  "name": "GerrioFin",
-  "short_name": "GerrioFin",
-  "description": "Personal cash, accounts and credit card tracker",
+  "name": "Kas",
+  "short_name": "Kas",
+  "description": "Catatan kas, akun, dan kartu kredit — pribadi & bisnis",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

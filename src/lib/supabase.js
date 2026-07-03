@@ -15,7 +15,7 @@ export function getSupabase() {
   if (!_client) {
     _client = createClient(url, anonKey, {
       auth: { persistSession: true, autoRefreshToken: true },
-      db: { schema: 'cash' } // all GerrioFin objects live in the cash schema (0006)
+      db: { schema: 'cash' } // all Kas objects live in the cash schema (0006)
     });
   }
   return _client;

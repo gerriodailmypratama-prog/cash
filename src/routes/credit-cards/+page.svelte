@@ -43,7 +43,7 @@
   });
 </script>
 
-<svelte:head><title>GerrioFin — Credit Cards</title></svelte:head>
+<svelte:head><title>Kas — Credit Cards</title></svelte:head>
 
 <section>
   <h1>Credit Cards</h1>

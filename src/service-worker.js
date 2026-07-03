@@ -2,7 +2,7 @@
 import { build, files, version } from '$service-worker';
 
 // Basic offline cache. Quick-capture offline support lands in a later PR.
-const CACHE = `gerriofin-cache-${version}`;
+const CACHE = `kas-cache-${version}`;
 const ASSETS = [...build, ...files];
 
 self.addEventListener('install', (event) => {

@@ -53,7 +53,7 @@
   }
 </script>
 
-<svelte:head><title>GerrioFin — Akun & Saldo</title></svelte:head>
+<svelte:head><title>Kas — Akun & Saldo</title></svelte:head>
 
 <section>
   <h1>Akun &amp; Saldo</h1>
