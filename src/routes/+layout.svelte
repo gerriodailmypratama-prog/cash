@@ -4,11 +4,23 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { getSupabase, isSupabaseConfigured } from '$lib/supabase';
+  import { selectedPot } from '$lib/pots';
 
   let { children } = $props();
 
   // undefined = still checking, null = logged out, object = logged in
   let session = $state(undefined);
+  let pots = $state([]);
+
+  async function loadPots() {
+    const { data } = await getSupabase()
+      .from('entities_active')
+      .select('id, name, kind')
+      .order('name');
+    pots = data || [];
+    // stale selection (deleted pot) -> back to Semua
+    if ($selectedPot && !pots.some((p) => p.id === $selectedPot)) selectedPot.set('');
+  }
 
   const nav = [
     { href: '/', label: 'Dashboard' },
@@ -36,9 +48,12 @@
     const supabase = getSupabase();
     supabase.auth.getSession().then(({ data }) => {
       session = data.session;
+      if (data.session) loadPots();
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      const hadSession = !!session;
       session = s;
+      if (s && !hadSession) loadPots();
     });
     return () => sub.subscription.unsubscribe();
   });
@@ -60,10 +75,24 @@
 </script>
 
 <div class="app-shell">
-  <header class="topbar">
-    <a href="/" class="brand">Kas</a>
-    {#if session}
-      <button class="logout" onclick={logout}>Keluar</button>
+  <header class="header">
+    <div class="topbar">
+      <a href="/" class="brand">Kas</a>
+      {#if session}
+        <button class="logout" onclick={logout}>Keluar</button>
+      {/if}
+    </div>
+    {#if session && pots.length}
+      <div class="pot-bar">
+        <button class="pot" class:active={$selectedPot === ''} onclick={() => selectedPot.set('')}>
+          Semua
+        </button>
+        {#each pots as p}
+          <button class="pot" class:active={$selectedPot === p.id} onclick={() => selectedPot.set(p.id)}>
+            {p.name}
+          </button>
+        {/each}
+      </div>
     {/if}
   </header>
 
@@ -96,16 +125,43 @@
     display: flex;
     flex-direction: column;
   }
-  .topbar {
+  .header {
     position: sticky;
     top: 0;
     z-index: 10;
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0.75rem 1rem;
-    background-color: var(--surface);
-    border-bottom: 1px solid var(--border);
+  }
+  .pot-bar {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0 1rem 0.6rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .pot-bar::-webkit-scrollbar { display: none; }
+  .pot {
+    flex: 0 0 auto;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .pot.active {
+    color: var(--primary-contrast);
+    background: var(--primary);
+    border-color: var(--primary);
   }
   .brand {
     font-weight: 700;

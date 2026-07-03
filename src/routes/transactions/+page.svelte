@@ -1,23 +1,28 @@
 <script>
   import { onMount } from 'svelte';
   import { getSupabase, supabase } from '$lib/supabase';
+  import { selectedPot } from '$lib/pots';
   import { rupiah, accountLabel } from '$lib/format';
 
   let rows = [];
   let loading = true;
   let errorMsg = '';
   let voidingId = '';
+  let ready = false;
 
-  async function load() {
+  async function load(pot) {
     loading = true;
     errorMsg = '';
+    let txQ = supabase
+      .from('transactions_active')
+      .select('id, date, amount, status, from_account_id, to_account_id, memo')
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (pot) txQ = txQ.eq('entity_id', pot);
     const [txRes, accRes] = await Promise.all([
-      supabase
-        .from('transactions_active')
-        .select('id, date, amount, status, from_account_id, to_account_id, memo')
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(100),
+      txQ,
+      // labels unfiltered so cross-pot transfers still resolve
       supabase.from('accounts_active').select('id, code, name, type, subtype')
     ]);
     if (txRes.error || accRes.error) {
@@ -34,7 +39,8 @@
     loading = false;
   }
 
-  onMount(load);
+  onMount(() => { ready = true; });
+  $: if (ready) load($selectedPot);
 
   // Void = accounting cancel: set status='void'. The row stays visible (struck
   // through) and drops out of account_balances (that view only counts 'posted').
