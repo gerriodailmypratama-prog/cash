@@ -162,15 +162,17 @@ Keep it short. The owner reads this from a warehouse floor, often mid live-sessi
 
 | Fact | Value |
 |------|-------|
-| Repo purpose | _e.g. Warehouse Management System PWA_ |
-| Prod URL | _e.g. `wms.goodgems.online`_ |
-| Hosting / deploy | _e.g. Vercel, auto-deploy on merge to `main`_ |
-| Database | _e.g. Supabase project `<ref>`, schema `wms`_ |
-| Hot paths to smoke test | _e.g. `pick_scan`, `packer_scan_in`, label print_ |
-| Notification webhook | _optional — Telegram/Slack URL for LIVE reports_ |
-| Invariant check job | _optional — e.g. `wms.invariant_check_and_alert()` via pg_cron, nightly 02:00 WIB_ |
-| Freeze window | _optional — leave empty if none_ |
-| Extra docs | _e.g. `docs/agents/` for repo-specific gotchas & RPC signatures_ |
+| Repo purpose | **GerrioFin** — personal + business (Goodgems live-commerce) finance PWA. Cash-basis `from → to` ledger + chart of accounts + credit-card module. SvelteKit 5 + Tailwind + Supabase. |
+| Prod URL | `https://cash-98j.pages.dev` (no custom domain / branch alias set yet — this is the Pages production URL) |
+| Hosting / deploy | Cloudflare Pages, project **`cash`** (account `bb8ed9082046449028cf15ded6fdfe05`). Auto-deploy via GitHub integration: push to `main` → production, PR branches → preview. Build output `.svelte-kit/cloudflare` (`@sveltejs/adapter-cloudflare`). `wrangler.jsonc` `name` is `gerriofin-cash` but the live Pages project is `cash`. |
+| Database | Supabase project **gerriolab** — ref `ryuwnsxwtwfmndnbysxw`, schema **`public`** (⚠️ shared with the WMS repo). Migrations in `/sql` (`NNNN_pr_clNN_*.sql`). Client uses the **anon** key (baked at build time from `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, set in Pages → Settings → Environment variables). No service-role key or DB password is available to agents — **agents cannot apply migrations to prod**; new schema work must be handed to the owner. |
+| Hot paths to smoke test | `login` (Supabase email/password) · `quick-capture` → `post_transaction` RPC (write, needs auth) · `dashboard` + `accounts` reads from `account_balances` view · transactions list + void. |
+| Notification webhook | _none_ |
+| Invariant check job | _none_ |
+| Freeze window | _none_ |
+| Extra docs | _none yet — repo-specific gotchas go in `docs/agents/` when created_ |
+
+> **Known gotcha (⚠️ RED-lane, owner action):** the `_active` / `account_balances` views were created without `security_invoker`, so they run with the view-owner's rights and **bypass RLS**. The public **anon** key can therefore read all ledger rows (entities, accounts, balances) without logging in. Writes are still protected (base-table RLS: only `authenticated` can insert/update). Tightening this is RLS work → RED lane, owner-approved only.
 
 ---
 
