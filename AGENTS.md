@@ -172,7 +172,7 @@ Keep it short. The owner reads this from a warehouse floor, often mid live-sessi
 | Freeze window | _none_ |
 | Extra docs | _none yet — repo-specific gotchas go in `docs/agents/` when created_ |
 
-> **Security model (since 0005, owner-approved 2026-07-04):** all views are `security_invoker` + anon's SELECT on views is revoked, so the public anon key can read/write **nothing** — every read and write requires an `authenticated` session (base tables: RLS policies from 0003 + 0005). The app enforces this UX-side with a route guard (PR-CL08). Any change to RLS/policies/grants stays 🔴 RED lane.
+> **Security model (0005 + 0009, owner-approved 2026-07-04):** all views are `security_invoker` + anon's SELECT on views is revoked — the public anon key can read/write **nothing**. Every policy requires `cash.is_app_user()`: membership in the **`cash.app_users` allowlist** (owner + wife accounts only), NOT mere `authenticated` — the shared project's ~20 WMS staff accounts cannot touch Kas data. Adding/removing allowlist members or any RLS/policy/grant change stays 🔴 RED lane. The app enforces UX-side with a route guard (PR-CL08).
 >
 > **Shared-project gotcha:** `public.items` (~230 rows, WMS-side) is still anon-readable — that fix belongs to the WMS repo, not this one.
 
