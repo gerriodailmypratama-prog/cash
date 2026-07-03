@@ -168,7 +168,7 @@ Keep it short. The owner reads this from a warehouse floor, often mid live-sessi
 | Database | Supabase project **gerriolab** — ref `ryuwnsxwtwfmndnbysxw`, schema **`cash`** (since 0006; the project is shared with WMS — never touch non-`cash` objects). `cash` is in the API "Exposed schemas" list; the client pins `db: { schema: 'cash' }`. Migrations in `/sql` (`NNNN_pr_clNN_*.sql`) are applied via the dashboard SQL Editor (owner login; agents drive it via the Chrome extension when the owner is signed in). Client uses the **anon** key (baked at build time from `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, set in Pages → Settings → Environment variables). |
 | Hot paths to smoke test | `login` (Supabase email/password) · `quick-capture` → `post_transaction` RPC (write, needs auth) · `dashboard` + `accounts` reads from `account_balances` view · transactions list + void. |
 | Notification webhook | _none_ |
-| Invariant check job | _none_ |
+| Invariant check job | `cash.invariant_check()` via pg_cron job `gerriofin_invariants_nightly`, nightly 02:00 WIB (19:00 UTC). Results append to `cash.audit_log` (`table_name='_invariants'`); no webhook yet. |
 | Freeze window | _none_ |
 | Extra docs | _none yet — repo-specific gotchas go in `docs/agents/` when created_ |
 
