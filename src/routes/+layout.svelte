@@ -7,9 +7,10 @@
 
   const nav = [
     { href: '/', label: 'Dashboard' },
-    { href: '/quick-capture', label: 'Quick Capture' },
-    { href: '/accounts', label: 'Accounts' },
-    { href: '/credit-cards', label: 'Credit Cards' }
+    { href: '/quick-capture', label: 'Capture' },
+    { href: '/transactions', label: 'Transaksi' },
+    { href: '/accounts', label: 'Akun' },
+    { href: '/credit-cards', label: 'Kartu' }
   ];
 
   function isActive(href, current) {
@@ -82,7 +83,7 @@
     left: 0;
     right: 0;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     background-color: var(--surface);
     border-top: 1px solid var(--border);
   }
