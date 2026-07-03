@@ -162,8 +162,8 @@ Keep it short. The owner reads this from a warehouse floor, often mid live-sessi
 
 | Fact | Value |
 |------|-------|
-| Repo purpose | **GerrioFin** — personal + business (Goodgems live-commerce) finance PWA. Cash-basis `from → to` ledger + chart of accounts + credit-card module. SvelteKit 5 + Tailwind + Supabase. |
-| Prod URL | `https://cash-98j.pages.dev` (no custom domain / branch alias set yet — this is the Pages production URL) |
+| Repo purpose | **Kas** (née GerrioFin, renamed PR-CL11) — personal + business (Goodgems live-commerce) finance PWA. Cash-basis `from → to` ledger + chart of accounts + credit-card module. SvelteKit 5 + Tailwind + Supabase. |
+| Prod URL | `https://kas.gerriolab.com` (custom domain on the Pages project; `https://cash-98j.pages.dev` also serves) |
 | Hosting / deploy | Cloudflare Pages, project **`cash`** (account `bb8ed9082046449028cf15ded6fdfe05`). Auto-deploy via GitHub integration: push to `main` → production, PR branches → preview. Build output `.svelte-kit/cloudflare` (`@sveltejs/adapter-cloudflare`). `wrangler.jsonc` `name` is `gerriofin-cash` but the live Pages project is `cash`. |
 | Database | Supabase project **gerriolab** — ref `ryuwnsxwtwfmndnbysxw`, schema **`cash`** (since 0006; the project is shared with WMS — never touch non-`cash` objects). `cash` is in the API "Exposed schemas" list; the client pins `db: { schema: 'cash' }`. Migrations in `/sql` (`NNNN_pr_clNN_*.sql`) are applied via the dashboard SQL Editor (owner login; agents drive it via the Chrome extension when the owner is signed in). Client uses the **anon** key (baked at build time from `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, set in Pages → Settings → Environment variables). |
 | Hot paths to smoke test | `login` (Supabase email/password) · `quick-capture` → `post_transaction` RPC (write, needs auth) · `dashboard` + `accounts` reads from `account_balances` view · transactions list + void. |

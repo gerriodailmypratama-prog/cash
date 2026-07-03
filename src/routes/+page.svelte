@@ -53,7 +53,7 @@
   });
 </script>
 
-<svelte:head><title>GerrioFin — Dashboard</title></svelte:head>
+<svelte:head><title>Kas — Dashboard</title></svelte:head>
 
 <section>
   <h1>Dashboard</h1>

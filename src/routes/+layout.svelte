@@ -61,7 +61,7 @@
 
 <div class="app-shell">
   <header class="topbar">
-    <a href="/" class="brand">GerrioFin</a>
+    <a href="/" class="brand">Kas</a>
     {#if session}
       <button class="logout" onclick={logout}>Keluar</button>
     {/if}

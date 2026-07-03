@@ -105,7 +105,7 @@
   }
 </script>
 
-<svelte:head><title>GerrioFin — Quick Capture</title></svelte:head>
+<svelte:head><title>Kas — Quick Capture</title></svelte:head>
 
 <section>
   <h1>Quick Capture</h1>

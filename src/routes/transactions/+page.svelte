@@ -60,7 +60,7 @@
   }
 </script>
 
-<svelte:head><title>GerrioFin — Transaksi</title></svelte:head>
+<svelte:head><title>Kas — Transaksi</title></svelte:head>
 
 <section>
   <h1>Transaksi</h1>

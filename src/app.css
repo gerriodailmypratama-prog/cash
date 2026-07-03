@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* GerrioFin design tokens — DARK ONLY (no light mode). */
+/* Kas design tokens — DARK ONLY (no light mode). */
 :root {
   color-scheme: dark;
 

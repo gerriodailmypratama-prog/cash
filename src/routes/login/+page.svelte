@@ -26,12 +26,12 @@
   }
 </script>
 
-<svelte:head><title>GerrioFin — Masuk</title></svelte:head>
+<svelte:head><title>Kas — Masuk</title></svelte:head>
 
 <section class="wrap">
   <div class="card login-card">
     <h1>Masuk</h1>
-    <p class="lead">Gunakan akun GerrioFin kamu.</p>
+    <p class="lead">Gunakan akun Kas kamu.</p>
 
     <form onsubmit={handleLogin}>
       <label for="email">Email</label>
