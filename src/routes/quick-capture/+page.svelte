@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { supabase } from '$lib/supabase';
+  import { selectedPot } from '$lib/pots';
   import { accountLabel } from '$lib/format';
 
   let accounts = [];
@@ -35,6 +36,8 @@
 
   onMount(async () => {
     loadLast();
+    // pot switcher (header) wins over the last-used entity
+    if ($selectedPot) entityId = $selectedPot;
     const [{ data: acc, error: e1 }, { data: ent, error: e2 }] = await Promise.all([
       supabase.from('accounts_active').select('id, code, name, type, subtype, entity_id').order('code'),
       supabase.from('entities_active').select('id, name').order('name')
@@ -47,16 +50,34 @@
     loading = false;
   });
 
-  // Account pools by type. Credit cards are LIABILITY accounts, valid to pay from.
-  $: assetLiab = accounts.filter((a) => a.type === 'ASSET' || a.type === 'LIABILITY');
-  $: expenses = accounts.filter((a) => a.type === 'EXPENSE');
-  $: incomes = accounts.filter((a) => a.type === 'INCOME');
+  // header pot change follows through while the page is open
+  $: if ($selectedPot && entities.length && $selectedPot !== entityId) {
+    entityId = $selectedPot;
+    payAccId = '';
+    categoryId = '';
+  }
+
+  $: entityById = new Map(entities.map((e) => [e.id, e]));
+  function potName(id) {
+    return entityById.get(id)?.name || '?';
+  }
+  function crossLabel(a) {
+    return potName(a.entity_id) + ' · ' + accountLabel(a);
+  }
+
+  // Account pools scoped to the chosen pot. Credit cards are LIABILITY accounts,
+  // valid to pay from. Transfer "Ke akun" spans ALL pots (cross-pot transfer).
+  $: inPot = accounts.filter((a) => !entityId || a.entity_id === entityId);
+  $: assetLiab = inPot.filter((a) => a.type === 'ASSET' || a.type === 'LIABILITY');
+  $: expenses = inPot.filter((a) => a.type === 'EXPENSE');
+  $: incomes = inPot.filter((a) => a.type === 'INCOME');
+  $: assetLiabAll = accounts.filter((a) => a.type === 'ASSET' || a.type === 'LIABILITY');
 
   // Contextual labels + option pools for the two selects, per mode.
   $: cfg = {
-    expense: { l1: 'Bayar dari', o1: assetLiab, l2: 'Kategori pengeluaran', o2: expenses },
-    income:  { l1: 'Masuk ke',   o1: assetLiab, l2: 'Sumber pemasukan',     o2: incomes },
-    transfer:{ l1: 'Dari akun',  o1: assetLiab, l2: 'Ke akun',              o2: assetLiab }
+    expense: { l1: 'Bayar dari', o1: assetLiab, l2: 'Kategori pengeluaran', o2: expenses, cross: false },
+    income:  { l1: 'Masuk ke',   o1: assetLiab, l2: 'Sumber pemasukan',     o2: incomes,  cross: false },
+    transfer:{ l1: 'Dari akun',  o1: assetLiab, l2: 'Ke akun (boleh beda pot)', o2: assetLiabAll, cross: true }
   }[mode];
 
   function setMode(m) {
@@ -139,14 +160,16 @@
         <span>{cfg.l2}</span>
         <select bind:value={categoryId}>
           <option value="" disabled>Pilih akun</option>
-          {#each cfg.o2 as a}<option value={a.id}>{accountLabel(a)}</option>{/each}
+          {#each cfg.o2 as a}
+            <option value={a.id}>{cfg.cross ? crossLabel(a) : accountLabel(a)}</option>
+          {/each}
         </select>
       </label>
 
       {#if entities.length > 1}
         <label>
-          <span>Entity</span>
-          <select bind:value={entityId}>
+          <span>Pot</span>
+          <select bind:value={entityId} on:change={() => { payAccId = ''; categoryId = ''; }}>
             {#each entities as e}<option value={e.id}>{e.name}</option>{/each}
           </select>
         </label>

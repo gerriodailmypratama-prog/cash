@@ -1,33 +1,46 @@
 <script>
   import { onMount } from 'svelte';
   import { supabase } from '$lib/supabase';
+  import { selectedPot } from '$lib/pots';
   import { rupiah, accountLabel, monthRange } from '$lib/format';
 
   let loading = true;
   let errorMsg = '';
 
-  let totalLikuid = 0;      // ASSET / subtype cash
+  let totalLikuid = 0;      // ASSET / subtype cash (filtered by pot)
   let expenseMonth = 0;     // money flowing INTO EXPENSE accounts this month
   let recent = [];          // latest transactions with resolved account labels
 
-  onMount(async () => {
+  let ready = false;
+
+  async function load(pot) {
+    loading = true;
+    errorMsg = '';
     const { first, last } = monthRange();
+
+    // labels/type lookup stays unfiltered so cross-pot transfers still resolve
+    let balQ = supabase.from('account_balances').select('account_id, entity_id, type, subtype, balance');
+    let monthQ = supabase
+      .from('transactions_active')
+      .select('amount, fx_rate, to_account_id')
+      .eq('status', 'posted')
+      .gte('date', first)
+      .lte('date', last);
+    let recentQ = supabase
+      .from('transactions_active')
+      .select('id, date, amount, status, from_account_id, to_account_id, memo')
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(5);
+    if (pot) {
+      balQ = balQ.eq('entity_id', pot);
+      monthQ = monthQ.eq('entity_id', pot);
+      recentQ = recentQ.eq('entity_id', pot);
+    }
 
     const [accRes, balRes, monthRes, recentRes] = await Promise.all([
       supabase.from('accounts_active').select('id, code, name, type, subtype'),
-      supabase.from('account_balances').select('account_id, type, subtype, balance'),
-      supabase
-        .from('transactions_active')
-        .select('amount, fx_rate, to_account_id')
-        .eq('status', 'posted')
-        .gte('date', first)
-        .lte('date', last),
-      supabase
-        .from('transactions_active')
-        .select('id, date, amount, status, from_account_id, to_account_id, memo')
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(5)
+      balQ, monthQ, recentQ
     ]);
 
     const firstErr = accRes.error || balRes.error || monthRes.error || recentRes.error;
@@ -50,7 +63,10 @@
     }));
 
     loading = false;
-  });
+  }
+
+  onMount(() => { ready = true; });
+  $: if (ready) load($selectedPot);
 </script>
 
 <svelte:head><title>Kas — Dashboard</title></svelte:head>

@@ -1,10 +1,12 @@
 <script>
   import { onMount } from 'svelte';
   import { supabase } from '$lib/supabase';
+  import { selectedPot } from '$lib/pots';
 
   let rows = [];        // from account_balances view
   let loading = true;
   let errorMsg = '';
+  let ready = false;
 
   // Group definitions. Map account type/subtype -> a display group.
   const GROUPS = [
@@ -30,15 +32,22 @@
     return null; // income/equity/expense not shown on the accounts balance page
   }
 
-  onMount(async () => {
-    const { data, error } = await supabase
+  async function load(pot) {
+    loading = true;
+    errorMsg = '';
+    let q = supabase
       .from('account_balances')
-      .select('account_id, code, name, type, subtype, balance')
+      .select('account_id, entity_id, code, name, type, subtype, balance')
       .order('code');
+    if (pot) q = q.eq('entity_id', pot);
+    const { data, error } = await q;
     if (error) errorMsg = error.message;
     rows = data || [];
     loading = false;
-  });
+  }
+
+  onMount(() => { ready = true; });
+  $: if (ready) load($selectedPot);
 
   $: grouped = GROUPS.map((g) => ({
     ...g,
