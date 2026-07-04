@@ -49,6 +49,28 @@
   $effect(() => {
     if (id) load(id);
   });
+
+  // category breakdown of charges (non-void, spend only)
+  let breakdown = $derived.by(() => {
+    const m = new Map();
+    for (const t of rows) {
+      if (!t.spend || t.status === 'void') continue;
+      const k = t.otherLabel;
+      m.set(k, (m.get(k) || 0) + Number(t.amount));
+    }
+    // refunds reduce their category
+    for (const t of rows) {
+      if (t.spend || t.status === 'void') continue;
+      if ((t.memo || '').toLowerCase().includes('refund')) {
+        const k = t.otherLabel;
+        if (m.has(k)) m.set(k, m.get(k) - Number(t.amount));
+      }
+    }
+    const arr = [...m.entries()].map(([label, total]) => ({ label, total })).sort((a, b) => b.total - a.total);
+    const max = arr[0]?.total || 1;
+    const grand = arr.reduce((s, x) => s + x.total, 0);
+    return { arr, max, grand };
+  });
 </script>
 
 <svelte:head><title>Kas — Detail Kartu</title></svelte:head>
@@ -81,6 +103,26 @@
       </div>
       <a class="manage" href="/credit-cards">Bayar / Samakan / Edit di halaman kartu →</a>
     </div>
+
+    {#if breakdown.arr.length > 0}
+      <h2>Kemana uang lari (kartu ini)</h2>
+      <div class="card">
+        <ul class="bd">
+          {#each breakdown.arr as b}
+            <li>
+              <div class="bd-top">
+                <span class="bd-label">{b.label}</span>
+                <span class="bd-amt">Rp {rupiah(b.total)}
+                  <span class="bd-pct">{Math.round((b.total / breakdown.grand) * 100)}%</span>
+                </span>
+              </div>
+              <div class="bd-bar"><div class="bd-fill" style="width:{Math.max((b.total / breakdown.max) * 100, 2)}%"></div></div>
+            </li>
+          {/each}
+        </ul>
+        <p class="bd-total">Total pemakaian tercatat: <b>Rp {rupiah(breakdown.grand)}</b></p>
+      </div>
+    {/if}
 
     <h2>Rincian transaksi</h2>
     {#if rows.length === 0}
@@ -129,6 +171,17 @@
   .badge { font-size: 0.7rem; font-weight: 700; color: var(--danger); border: 1px solid var(--danger);
            padding: 0.1rem 0.4rem; border-radius: 999px; }
   .manage { display: inline-block; margin-top: 0.75rem; color: var(--primary); font-size: 0.85rem; }
+
+  .bd { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.65rem; }
+  .bd-top { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.88rem; margin-bottom: 0.25rem; }
+  .bd-label { color: var(--text); }
+  .bd-amt { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+  .bd-pct { color: var(--text-dim); font-weight: 400; font-size: 0.78rem; margin-left: 0.35rem; }
+  .bd-bar { height: 6px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .bd-fill { height: 100%; background: var(--primary); border-radius: 999px; }
+  .bd-total { margin: 0.85rem 0 0; padding-top: 0.6rem; border-top: 1px solid var(--border);
+              color: var(--text-muted); font-size: 0.85rem; }
+  .bd-total b { color: var(--text); }
 
   .list { padding: 0.25rem 1rem; }
   ul { list-style: none; margin: 0; padding: 0; }
