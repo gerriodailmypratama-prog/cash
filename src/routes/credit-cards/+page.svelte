@@ -10,6 +10,8 @@
   let loading = $state(true);
   let errorMsg = $state('');
 
+  let payAccounts = $state([]); // ASSET/cash accounts to pay a card from
+
   // inline forms
   let adjustId = $state('');     // card being reconciled
   let adjustValue = $state('');
@@ -17,6 +19,9 @@
   let editLimit = $state('');
   let editStmt = $state('');
   let editDue = $state('');
+  let payId = $state('');        // card being paid
+  let payFrom = $state('');
+  let payValue = $state('');
   let formBusy = $state(false);
   let formMsg = $state('');
 
@@ -82,19 +87,21 @@
 
   async function load() {
     try {
-      const [c, i, r, m, eq] = await Promise.all([
+      const [c, i, r, m, acc] = await Promise.all([
         supabase.from('credit_card_status').select('*').order('card_name'),
         supabase.from('cc_installments_active').select('*'),
         supabase.from('cc_due_reminders').select('*'),
         supabase.from('credit_cards_active').select('account_id, memo'),
-        supabase.from('accounts_active').select('id, entity_id').eq('code', '3000')
+        supabase.from('accounts_active').select('id, entity_id, code, name, type, subtype')
       ]);
       if (c.error) throw c.error;
       cards = c.data ?? [];
       installments = i.data ?? [];
       reminders = r.data ?? [];
       memos = new Map((m.data ?? []).filter((x) => x.memo).map((x) => [x.account_id, x.memo]));
-      equityByEntity = new Map((eq.data ?? []).map((a) => [a.entity_id, a.id]));
+      const accs = acc.data ?? [];
+      equityByEntity = new Map(accs.filter((a) => a.code === '3000').map((a) => [a.entity_id, a.id]));
+      payAccounts = accs.filter((a) => a.type === 'ASSET' && (a.subtype || '').toLowerCase() === 'cash');
     } catch (e) {
       errorMsg = e?.message ?? 'Gagal memuat data kartu.';
     } finally {
@@ -103,21 +110,50 @@
   }
   onMount(load);
 
+  function closeForms() { adjustId = ''; editId = ''; payId = ''; formMsg = ''; }
   function toggleAdjust(card) {
-    formMsg = '';
-    editId = '';
-    if (adjustId === card.account_id) { adjustId = ''; return; }
+    const open = adjustId === card.account_id; closeForms();
+    if (open) return;
     adjustId = card.account_id;
     adjustValue = String(Math.round(card.current_balance || 0));
   }
   function toggleEdit(card) {
-    formMsg = '';
-    adjustId = '';
-    if (editId === card.account_id) { editId = ''; return; }
+    const open = editId === card.account_id; closeForms();
+    if (open) return;
     editId = card.account_id;
     editLimit = card.credit_limit == null ? '' : String(Math.round(card.credit_limit));
     editStmt = card.statement_day == null ? '' : String(card.statement_day);
     editDue = card.due_day == null ? '' : String(card.due_day);
+  }
+  function togglePay(card) {
+    const open = payId === card.account_id; closeForms();
+    if (open) return;
+    payId = card.account_id;
+    payValue = '';
+    // default: a cash account in the same pot, else first
+    const samePot = payAccounts.find((a) => a.entity_id === card.entity_id);
+    payFrom = (samePot || payAccounts[0])?.id || '';
+  }
+
+  // Payment: money flows from a cash/bank account -> INTO the card (reduces owed).
+  async function submitPay(card) {
+    formMsg = '';
+    const amt = Number(payValue);
+    if (Number.isNaN(amt) || amt <= 0) { formMsg = 'Isi nominal pembayaran.'; return; }
+    if (!payFrom) { formMsg = 'Pilih akun sumber pembayaran.'; return; }
+    formBusy = true;
+    const { error } = await supabase.rpc('post_transaction', {
+      p_amount: Math.round(amt),
+      p_from_account_id: payFrom,
+      p_to_account_id: card.account_id,
+      p_entity_id: card.entity_id,
+      p_memo: 'pembayaran kartu kredit'
+    });
+    formBusy = false;
+    if (error) { formMsg = error.message; return; }
+    payId = '';
+    loading = true;
+    await load();
   }
 
   // Reconcile: post ONE adjustment transaction so ledger outstanding == real bill.
@@ -224,7 +260,7 @@
         <div class="card cc" class:over={card.over_limit}>
           <div class="cc-head">
             <div>
-              <span class="cc-name">{card.card_name}</span>
+              <a class="cc-name" href="/credit-cards/{card.account_id}">{card.card_name}</a>
               {#if card.issuer}<span class="cc-issuer">{card.issuer}</span>{/if}
             </div>
             {#if card.over_limit}
@@ -270,9 +306,33 @@
           {/if}
 
           <div class="actions">
+            <button class="act pay" onclick={() => togglePay(card)}>Bayar</button>
             <button class="act" onclick={() => toggleAdjust(card)}>Samakan tagihan</button>
             <button class="act" onclick={() => toggleEdit(card)}>Edit kartu</button>
+            <a class="act detail" href="/credit-cards/{card.account_id}">Detail →</a>
           </div>
+
+          {#if payId === card.account_id}
+            <div class="inline-form">
+              <label>
+                <span>Bayar berapa (Rp)</span>
+                <input type="number" inputmode="numeric" min="0" step="1" bind:value={payValue} placeholder="0" />
+              </label>
+              <label>
+                <span>Dari akun</span>
+                <select bind:value={payFrom}>
+                  {#each payAccounts as a}
+                    <option value={a.id}>{a.name}</option>
+                  {/each}
+                </select>
+              </label>
+              <p class="hint">Bisa bertahap — pencet Bayar tiap kali kamu transfer ke kartu ini.</p>
+              {#if formMsg}<p class="form-err">{formMsg}</p>{/if}
+              <button class="btn-primary" onclick={() => submitPay(card)} disabled={formBusy}>
+                {formBusy ? 'Menyimpan…' : 'Catat pembayaran'}
+              </button>
+            </div>
+          {/if}
 
           {#if adjustId === card.account_id}
             <div class="inline-form">
@@ -327,7 +387,8 @@
   .cc.over { border-color: var(--danger); }
 
   .cc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
-  .cc-name { font-weight: 700; }
+  .cc-name { font-weight: 700; color: var(--text); text-decoration: none; border-bottom: 1px dotted var(--text-dim); }
+  .cc-name:hover { color: var(--primary); border-bottom-color: var(--primary); }
   .cc-issuer { color: var(--text-muted); margin-left: 0.5rem; font-size: 0.85rem; }
 
   .badge { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 999px; white-space: nowrap; }
@@ -368,10 +429,13 @@
 
   .memo-flag { margin: 0.6rem 0 0; font-size: 0.78rem; color: var(--warning); }
 
-  .actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; align-items: center; }
   .act { background: transparent; color: var(--text-muted); border: 1px solid var(--border);
-         border-radius: var(--radius-sm); padding: 0.3rem 0.7rem; font-size: 0.8rem; cursor: pointer; }
+         border-radius: var(--radius-sm); padding: 0.3rem 0.7rem; font-size: 0.8rem; cursor: pointer;
+         text-decoration: none; display: inline-flex; }
   .act:hover { color: var(--text); border-color: var(--text-dim); }
+  .act.pay { color: var(--primary); border-color: var(--primary); font-weight: 600; }
+  .act.detail { margin-left: auto; border-color: transparent; color: var(--primary); }
 
   .inline-form { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--border);
                  display: flex; flex-direction: column; gap: 0.6rem; }
