@@ -3,6 +3,7 @@
   import { supabase } from '$lib/supabase';
   import { selectedPot } from '$lib/pots';
   import { accountLabel } from '$lib/format';
+  import { emojiFor } from '$lib/emoji';
 
   let accounts = [];
   let entities = [];
@@ -161,7 +162,7 @@
         <span>{cfg.l1}</span>
         <select bind:value={payAccId}>
           <option value="" disabled>Pilih akun</option>
-          {#each cfg.o1 as a}<option value={a.id}>{accountLabel(a)}</option>{/each}
+          {#each cfg.o1 as a}<option value={a.id}>{emojiFor(a)} {accountLabel(a)}</option>{/each}
         </select>
       </label>
 
@@ -170,7 +171,7 @@
         <select bind:value={categoryId}>
           <option value="" disabled>Pilih akun</option>
           {#each cfg.o2 as a}
-            <option value={a.id}>{cfg.cross ? crossLabel(a) : accountLabel(a)}</option>
+            <option value={a.id}>{emojiFor(a)} {cfg.cross ? crossLabel(a) : accountLabel(a)}</option>
           {/each}
         </select>
       </label>

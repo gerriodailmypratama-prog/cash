@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { supabase } from '$lib/supabase';
+  import { bankLogo } from '$lib/bank-logos';
 
   let cards = $state([]);
   let installments = $state([]);
@@ -263,11 +264,17 @@
       {#each visibleCards as card (card.account_id)}
         {@const rem = reminderFor(card.account_id)}
         {@const plans = plansFor(card.account_id)}
+        {@const bank = bankLogo(card.issuer, card.card_name)}
         <div class="card cc" class:over={card.over_limit}>
           <div class="cc-head">
-            <div>
-              <a class="cc-name" href="/credit-cards/{card.account_id}">{card.card_name}</a>
-              {#if card.issuer}<span class="cc-issuer">{card.issuer}</span>{/if}
+            <div class="cc-id">
+              <span class="bank-chip" style={bank.src ? '' : `background:${bank.bg};color:${bank.fg}`}>
+                {#if bank.src}<img src={bank.src} alt={bank.alt} loading="lazy" />{:else}{bank.initials}{/if}
+              </span>
+              <div class="cc-names">
+                <a class="cc-name" href="/credit-cards/{card.account_id}">{card.card_name}</a>
+                {#if card.issuer}<span class="cc-issuer">{card.issuer}</span>{/if}
+              </div>
             </div>
             {#if card.over_limit}
               <span class="badge badge-danger">OVER LIMIT</span>
@@ -422,9 +429,11 @@
   .cc.over, .cc.over:hover { border-color: var(--danger); }
 
   .cc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
-  .cc-name { font-weight: 700; color: var(--text); border-bottom: 1px dotted var(--text-dim); transition: color 0.18s ease, border-color 0.18s ease; }
-  .cc-name:hover { color: var(--primary); border-bottom-color: var(--primary); }
-  .cc-issuer { color: var(--text-muted); margin-left: 0.5rem; font-size: 0.85rem; }
+  .cc-id { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
+  .cc-names { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+  .cc-name { font-weight: 700; color: var(--text); transition: color 0.18s ease; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cc-name:hover { color: var(--primary); }
+  .cc-issuer { color: var(--text-dim); font-size: 0.74rem; }
 
   .cc-balance { display: flex; flex-direction: column; margin: 0.8rem 0 0.55rem; }
   .cc-balance .muted { font-size: 0.78rem; }

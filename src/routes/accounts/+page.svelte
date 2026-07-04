@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { supabase } from '$lib/supabase';
   import { selectedPot } from '$lib/pots';
+  import { emojiFor } from '$lib/emoji';
 
   let rows = [];        // from account_balances view
   let loading = true;
@@ -88,7 +89,7 @@
         <ul>
           {#each g.items as a}
             <li class="row">
-              <span class="acc">{a.code ? a.code + ' · ' : ''}{a.name}</span>
+              <span class="acc">{emojiFor(a)} {a.name}</span>
               <span class="bal num {a.balance < 0 ? 'amount-neg' : ''}">Rp {rupiah(a.balance)}</span>
             </li>
           {/each}

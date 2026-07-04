@@ -261,6 +261,32 @@ input:focus, select:focus, textarea:focus {
     background-clip: text;
     color: transparent;
   }
+
+  /* bank logo plate: white so official colored logos stay legible on dark.
+     Fallback monogram overrides bg/fg via inline style from bank-logos.js. */
+  .bank-chip {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #111111;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 5px;
+    font-weight: 800;
+    font-size: 1rem;
+    border: 1px solid var(--border);
+  }
+  .bank-chip img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  .bank-chip.sm { width: 28px; height: 28px; border-radius: 8px; padding: 4px; font-size: 0.8rem; }
 }
 
 /* page fade-in */
