@@ -6,8 +6,19 @@
   let installments = $state([]);
   let reminders = $state([]);
   let memos = $state(new Map());
+  let equityByEntity = $state(new Map()); // entity_id -> Owner Equity (3000) account id
   let loading = $state(true);
   let errorMsg = $state('');
+
+  // inline forms
+  let adjustId = $state('');     // card being reconciled
+  let adjustValue = $state('');
+  let editId = $state('');       // card being edited
+  let editLimit = $state('');
+  let editStmt = $state('');
+  let editDue = $state('');
+  let formBusy = $state(false);
+  let formMsg = $state('');
 
   const fmt = (n) =>
     n == null ? '—' : new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
@@ -53,25 +64,92 @@
   );
   let bestCard = $derived(ranking[0] ?? null);
 
-  onMount(async () => {
+  async function load() {
     try {
-      const [c, i, r, m] = await Promise.all([
+      const [c, i, r, m, eq] = await Promise.all([
         supabase.from('credit_card_status').select('*').order('card_name'),
         supabase.from('cc_installments_active').select('*'),
         supabase.from('cc_due_reminders').select('*'),
-        supabase.from('credit_cards_active').select('account_id, memo')
+        supabase.from('credit_cards_active').select('account_id, memo'),
+        supabase.from('accounts_active').select('id, entity_id').eq('code', '3000')
       ]);
       if (c.error) throw c.error;
       cards = c.data ?? [];
       installments = i.data ?? [];
       reminders = r.data ?? [];
       memos = new Map((m.data ?? []).filter((x) => x.memo).map((x) => [x.account_id, x.memo]));
+      equityByEntity = new Map((eq.data ?? []).map((a) => [a.entity_id, a.id]));
     } catch (e) {
       errorMsg = e?.message ?? 'Gagal memuat data kartu.';
     } finally {
       loading = false;
     }
-  });
+  }
+  onMount(load);
+
+  function toggleAdjust(card) {
+    formMsg = '';
+    editId = '';
+    if (adjustId === card.account_id) { adjustId = ''; return; }
+    adjustId = card.account_id;
+    adjustValue = String(Math.round(card.current_balance || 0));
+  }
+  function toggleEdit(card) {
+    formMsg = '';
+    adjustId = '';
+    if (editId === card.account_id) { editId = ''; return; }
+    editId = card.account_id;
+    editLimit = card.credit_limit == null ? '' : String(Math.round(card.credit_limit));
+    editStmt = card.statement_day == null ? '' : String(card.statement_day);
+    editDue = card.due_day == null ? '' : String(card.due_day);
+  }
+
+  // Reconcile: post ONE adjustment transaction so ledger outstanding == real bill.
+  // more owed  -> card -> Owner Equity (spend recorded as opening balance)
+  // less owed  -> Owner Equity -> card (treated like a payment)
+  async function submitAdjust(card) {
+    formMsg = '';
+    const target = Number(adjustValue);
+    if (Number.isNaN(target) || target < 0) { formMsg = 'Isi angka tagihan yang benar.'; return; }
+    const delta = Math.round(target - Number(card.current_balance || 0));
+    if (delta === 0) { formMsg = 'Sudah pas — tidak ada yang perlu disesuaikan.'; adjustId = ''; return; }
+    const equity = equityByEntity.get(card.entity_id);
+    if (!equity) { formMsg = 'Akun Owner Equity (3000) pot ini tidak ketemu.'; return; }
+    formBusy = true;
+    const { error } = await supabase.rpc('post_transaction', {
+      p_amount: Math.abs(delta),
+      p_from_account_id: delta > 0 ? card.account_id : equity,
+      p_to_account_id: delta > 0 ? equity : card.account_id,
+      p_entity_id: card.entity_id,
+      p_memo: 'penyesuaian tagihan kartu (saldo awal)'
+    });
+    formBusy = false;
+    if (error) { formMsg = error.message; return; }
+    adjustId = '';
+    loading = true;
+    await load();
+  }
+
+  async function submitEdit(card) {
+    formMsg = '';
+    const lim = editLimit === '' ? null : Number(editLimit);
+    const st = editStmt === '' ? null : Number(editStmt);
+    const du = editDue === '' ? null : Number(editDue);
+    if (lim != null && (Number.isNaN(lim) || lim < 0)) { formMsg = 'Limit tidak valid.'; return; }
+    for (const d of [st, du]) {
+      if (d != null && (Number.isNaN(d) || d < 1 || d > 31)) { formMsg = 'Tanggal harus 1–31.'; return; }
+    }
+    formBusy = true;
+    const { error } = await supabase
+      .from('credit_cards')
+      .update({ credit_limit: lim, statement_day: st, due_day: du, updated_at: new Date().toISOString() })
+      .eq('account_id', card.account_id);
+    formBusy = false;
+    if (error) { formMsg = error.message; return; }
+    editId = '';
+    loading = true;
+    await load();
+  }
 </script>
 
 <svelte:head><title>Kas — Kartu Kredit</title></svelte:head>
@@ -161,6 +239,48 @@
           {#if memos.get(card.account_id)}
             <p class="memo-flag">⚠ {memos.get(card.account_id)}</p>
           {/if}
+
+          <div class="actions">
+            <button class="act" onclick={() => toggleAdjust(card)}>Samakan tagihan</button>
+            <button class="act" onclick={() => toggleEdit(card)}>Edit kartu</button>
+          </div>
+
+          {#if adjustId === card.account_id}
+            <div class="inline-form">
+              <label>
+                <span>Tagihan real sekarang (Rp) — cek app bank / sheet lo</span>
+                <input type="number" inputmode="numeric" min="0" step="1" bind:value={adjustValue} placeholder="0" />
+              </label>
+              <p class="hint">Sistem akan mencatat 1 transaksi penyesuaian supaya tagihan di app = angka ini.</p>
+              {#if formMsg}<p class="form-err">{formMsg}</p>{/if}
+              <button class="btn-primary" onclick={() => submitAdjust(card)} disabled={formBusy}>
+                {formBusy ? 'Menyimpan…' : 'Sesuaikan'}
+              </button>
+            </div>
+          {/if}
+
+          {#if editId === card.account_id}
+            <div class="inline-form">
+              <label>
+                <span>Limit (Rp)</span>
+                <input type="number" inputmode="numeric" min="0" step="1" bind:value={editLimit} placeholder="kosongkan jika tidak tahu" />
+              </label>
+              <div class="two">
+                <label>
+                  <span>Tgl invoice (1–31)</span>
+                  <input type="number" inputmode="numeric" min="1" max="31" bind:value={editStmt} placeholder="—" />
+                </label>
+                <label>
+                  <span>Tgl tempo (1–31)</span>
+                  <input type="number" inputmode="numeric" min="1" max="31" bind:value={editDue} placeholder="—" />
+                </label>
+              </div>
+              {#if formMsg}<p class="form-err">{formMsg}</p>{/if}
+              <button class="btn-primary" onclick={() => submitEdit(card)} disabled={formBusy}>
+                {formBusy ? 'Menyimpan…' : 'Simpan kartu'}
+              </button>
+            </div>
+          {/if}
         </div>
       {/each}
     </div>
@@ -218,4 +338,18 @@
   .ok-text { color: var(--primary); }
 
   .memo-flag { margin: 0.6rem 0 0; font-size: 0.78rem; color: var(--warning); }
+
+  .actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+  .act { background: transparent; color: var(--text-muted); border: 1px solid var(--border);
+         border-radius: var(--radius-sm); padding: 0.3rem 0.7rem; font-size: 0.8rem; cursor: pointer; }
+  .act:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .inline-form { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--border);
+                 display: flex; flex-direction: column; gap: 0.6rem; }
+  .inline-form label { display: flex; flex-direction: column; gap: 0.3rem; }
+  .inline-form label span { font-size: 0.8rem; color: var(--text-muted); }
+  .inline-form input { padding: 0.55rem 0.7rem; font-size: 1rem; width: 100%; }
+  .inline-form .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .hint { margin: 0; font-size: 0.75rem; color: var(--text-dim); }
+  .form-err { margin: 0; font-size: 0.8rem; color: var(--danger); }
 </style>
