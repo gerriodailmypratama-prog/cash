@@ -5,6 +5,7 @@
   import { goto } from '$app/navigation';
   import { getSupabase, isSupabaseConfigured } from '$lib/supabase';
   import { selectedPot } from '$lib/pots';
+  import UpdateBanner from '$lib/UpdateBanner.svelte';
 
   let { children } = $props();
 
@@ -132,6 +133,8 @@
     </nav>
   {/if}
 </div>
+
+<UpdateBanner />
 
 <style>
   .app-shell {

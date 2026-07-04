@@ -5,7 +5,12 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
   preprocess: vitePreprocess(),
   kit: {
-    adapter: adapter()
+    adapter: adapter(),
+    version: {
+      // Polling _app/version.json tiap 60 detik — sinyal buat banner
+      // "versi baru tersedia" (src/lib/UpdateBanner.svelte).
+      pollInterval: 60000
+    }
   }
 };
 
