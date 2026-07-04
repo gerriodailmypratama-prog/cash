@@ -2,6 +2,8 @@
   import { page } from '$app/stores';
   import { supabase } from '$lib/supabase';
   import { rupiah, accountLabel } from '$lib/format';
+  import { bankLogo } from '$lib/bank-logos';
+  import { emojiFor } from '$lib/emoji';
 
   let id = $derived($page.params.account_id);
 
@@ -89,8 +91,16 @@
   {:else if !card}
     <div class="card"><p class="muted">Kartu tidak ditemukan.</p></div>
   {:else}
-    <h1>{card.card_name}</h1>
-    <p class="lead">{card.issuer ?? ''}</p>
+    {@const bank = bankLogo(card.issuer, card.card_name)}
+    <div class="head-id">
+      <span class="bank-chip" style={bank.src ? '' : `background:${bank.bg};color:${bank.fg}`}>
+        {#if bank.src}<img src={bank.src} alt={bank.alt} />{:else}{bank.initials}{/if}
+      </span>
+      <div>
+        <h1>{card.card_name}</h1>
+        <p class="lead">{card.issuer ?? ''}</p>
+      </div>
+    </div>
 
     <div class="card-hero summary" class:over={card.over_limit}>
       <div class="s-bill">
@@ -115,7 +125,7 @@
           {#each breakdown.arr as b}
             <li>
               <div class="bd-top">
-                <span class="bd-label">{b.label}</span>
+                <span class="bd-label">{emojiFor(b.label)} {b.label}</span>
                 <span class="bd-amt num">Rp {rupiah(b.total)}
                   <span class="bd-pct">{Math.round((b.total / breakdown.grand) * 100)}%</span>
                 </span>
@@ -141,7 +151,7 @@
             <li class="row" class:voided={t.status === 'void'}>
               <div class="t-main">
                 <span class="t-desc">{t.memo || (t.spend ? 'Belanja' : 'Pembayaran')}</span>
-                <span class="t-sub">{t.date} · {t.spend ? 'ke' : 'dari'} {t.otherLabel}
+                <span class="t-sub">{t.date} · {t.spend ? 'ke' : 'dari'} {emojiFor(t.otherLabel)} {t.otherLabel}
                   {#if t.status === 'void'}· <span class="v">void</span>{/if}</span>
               </div>
               <span class="t-amt num" class:amount-pos={!t.spend}>
@@ -169,13 +179,15 @@
   }
   .back:hover { color: var(--primary); }
 
+  .head-id { display: flex; align-items: center; gap: 0.75rem; margin: 0.5rem 0 1rem; }
+  .head-id .bank-chip { width: 46px; height: 46px; border-radius: 12px; }
   h1 {
     font-size: 1.45rem;
     font-weight: 700;
     letter-spacing: -0.01em;
-    margin: 0.5rem 0 0.15rem;
+    margin: 0 0 0.1rem;
   }
-  .lead { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 1rem; }
+  .lead { color: var(--text-muted); font-size: 0.9rem; margin: 0; }
   h2.section-h { display: flex; margin: 1.5rem 0 0.6rem; }
 
   .muted { color: var(--text-muted); }
