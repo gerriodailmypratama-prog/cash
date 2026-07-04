@@ -79,7 +79,11 @@
   <a href="/credit-cards" class="back">← Semua kartu</a>
 
   {#if loading}
-    <div class="card"><p class="muted">Memuat…</p></div>
+    <div class="card loading" aria-busy="true">
+      <div class="skeleton" style="width: 42%; height: 0.9rem;"></div>
+      <div class="skeleton" style="width: 68%; height: 1.7rem;"></div>
+      <div class="skeleton" style="width: 55%; height: 0.9rem;"></div>
+    </div>
   {:else if errorMsg}
     <div class="card"><p class="err">{errorMsg}</p></div>
   {:else if !card}
@@ -88,31 +92,31 @@
     <h1>{card.card_name}</h1>
     <p class="lead">{card.issuer ?? ''}</p>
 
-    <div class="card summary" class:over={card.over_limit}>
+    <div class="card-hero summary" class:over={card.over_limit}>
       <div class="s-bill">
-        <span class="muted">Tagihan berjalan</span>
-        <span class="big">{fmt(card.current_balance)}</span>
+        <span class="s-label">Tagihan berjalan</span>
+        <span class="big num">{fmt(card.current_balance)}</span>
+        {#if card.over_limit}<span class="badge badge-danger">OVER LIMIT</span>{/if}
       </div>
       <div class="s-grid">
-        <div><span class="muted">Limit</span><span>{fmt(card.credit_limit)}</span></div>
-        <div><span class="muted">Tersedia</span><span class:neg={Number(card.available) < 0}>{fmt(card.available)}</span></div>
-        <div><span class="muted">Utilisasi</span><span>{card.util_pct == null ? '—' : card.util_pct + '%'}</span></div>
-        <div><span class="muted">Invoice</span><span>tgl {card.statement_day ?? '—'}</span></div>
-        <div><span class="muted">Jatuh tempo</span><span>tgl {card.due_day ?? '—'}</span></div>
-        {#if card.over_limit}<div><span class="badge">OVER LIMIT</span></div>{/if}
+        <div><span class="muted">Limit</span><span class="num">{fmt(card.credit_limit)}</span></div>
+        <div><span class="muted">Tersedia</span><span class="num" class:amount-neg={Number(card.available) < 0}>{fmt(card.available)}</span></div>
+        <div><span class="muted">Utilisasi</span><span class="num">{card.util_pct == null ? '—' : card.util_pct + '%'}</span></div>
+        <div><span class="muted">Invoice</span><span class="num">tgl {card.statement_day ?? '—'}</span></div>
+        <div><span class="muted">Jatuh tempo</span><span class="num">tgl {card.due_day ?? '—'}</span></div>
       </div>
       <a class="manage" href="/credit-cards">Bayar / Samakan / Edit di halaman kartu →</a>
     </div>
 
     {#if breakdown.arr.length > 0}
-      <h2>Kemana uang lari (kartu ini)</h2>
+      <h2 class="section-h">Kemana uang lari (kartu ini)</h2>
       <div class="card">
         <ul class="bd">
           {#each breakdown.arr as b}
             <li>
               <div class="bd-top">
                 <span class="bd-label">{b.label}</span>
-                <span class="bd-amt">Rp {rupiah(b.total)}
+                <span class="bd-amt num">Rp {rupiah(b.total)}
                   <span class="bd-pct">{Math.round((b.total / breakdown.grand) * 100)}%</span>
                 </span>
               </div>
@@ -120,11 +124,11 @@
             </li>
           {/each}
         </ul>
-        <p class="bd-total">Total pemakaian tercatat: <b>Rp {rupiah(breakdown.grand)}</b></p>
+        <p class="bd-total">Total pemakaian tercatat: <b class="num">Rp {rupiah(breakdown.grand)}</b></p>
       </div>
     {/if}
 
-    <h2>Rincian transaksi</h2>
+    <h2 class="section-h">Rincian transaksi</h2>
     {#if rows.length === 0}
       <div class="card">
         <p class="muted">Belum ada transaksi tercatat untuk kartu ini. Gesekan yang kamu catat
@@ -134,13 +138,13 @@
       <div class="card list">
         <ul>
           {#each rows as t}
-            <li class:voided={t.status === 'void'}>
+            <li class="row" class:voided={t.status === 'void'}>
               <div class="t-main">
                 <span class="t-desc">{t.memo || (t.spend ? 'Belanja' : 'Pembayaran')}</span>
                 <span class="t-sub">{t.date} · {t.spend ? 'ke' : 'dari'} {t.otherLabel}
                   {#if t.status === 'void'}· <span class="v">void</span>{/if}</span>
               </div>
-              <span class="t-amt" class:pay={!t.spend}>
+              <span class="t-amt num" class:amount-pos={!t.spend}>
                 {t.spend ? '+' : '−'} Rp {rupiah(Math.abs(t.amount))}
               </span>
             </li>
@@ -153,47 +157,108 @@
 </section>
 
 <style>
-  .back { color: var(--text-muted); font-size: 0.85rem; }
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.55rem 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: color 0.18s ease;
+  }
   .back:hover { color: var(--primary); }
-  h1 { font-size: 1.4rem; font-weight: 700; margin: 0.75rem 0 0.15rem; }
-  h2 { font-size: 1rem; font-weight: 600; margin: 1.25rem 0 0.5rem; }
-  .lead { color: var(--text-muted); margin: 0 0 1rem; }
+
+  h1 {
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0.5rem 0 0.15rem;
+  }
+  .lead { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 1rem; }
+  h2.section-h { display: flex; margin: 1.5rem 0 0.6rem; }
+
   .muted { color: var(--text-muted); }
   .err { color: var(--danger); margin: 0; }
   .hint { color: var(--text-dim); font-size: 0.75rem; margin: 0.5rem 0 0; }
 
-  .summary.over { border-color: var(--danger); }
-  .s-bill { display: flex; flex-direction: column; margin-bottom: 0.75rem; }
-  .s-bill .big { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .s-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1rem; }
-  .s-grid div { display: flex; justify-content: space-between; font-size: 0.9rem; }
-  .s-grid .neg { color: var(--danger); }
-  .badge { font-size: 0.7rem; font-weight: 700; color: var(--danger); border: 1px solid var(--danger);
-           padding: 0.1rem 0.4rem; border-radius: 999px; }
-  .manage { display: inline-block; margin-top: 0.75rem; color: var(--primary); font-size: 0.85rem; }
+  /* loading skeletons */
+  .loading { display: flex; flex-direction: column; gap: 0.6rem; }
 
-  .bd { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.65rem; }
-  .bd-top { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.88rem; margin-bottom: 0.25rem; }
-  .bd-label { color: var(--text); }
-  .bd-amt { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+  /* ---- summary hero ---- */
+  .summary { margin-top: 0.25rem; }
+  .summary.over { border-color: var(--danger); }
+  .s-bill {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    margin-bottom: 0.95rem;
+  }
+  .s-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+  .big { font-size: 1.9rem; font-weight: 800; line-height: 1.15; }
+  .s-bill .badge { margin-top: 0.4rem; }
+  .s-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem 1.25rem;
+  }
+  .s-grid > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+  }
+  .s-grid .muted { font-size: 0.8rem; }
+  .manage {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 0.75rem;
+    padding: 0.3rem 0;
+    color: var(--primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: filter 0.18s ease;
+  }
+  .manage:hover { filter: brightness(1.15); }
+
+  /* ---- breakdown bars ---- */
+  .bd { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+  .bd-top { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.88rem; margin-bottom: 0.3rem; }
+  .bd-label { color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bd-amt { font-weight: 600; white-space: nowrap; }
   .bd-pct { color: var(--text-dim); font-weight: 400; font-size: 0.78rem; margin-left: 0.35rem; }
-  .bd-bar { height: 6px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
-  .bd-fill { height: 100%; background: var(--primary); border-radius: 999px; }
-  .bd-total { margin: 0.85rem 0 0; padding-top: 0.6rem; border-top: 1px solid var(--border);
-              color: var(--text-muted); font-size: 0.85rem; }
+  .bd-bar { height: 7px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+  .bd-fill {
+    height: 100%;
+    background: var(--grad-primary);
+    border-radius: 999px;
+    box-shadow: 0 0 8px var(--primary-glow);
+    transition: width 0.18s ease;
+  }
+  .bd-total {
+    margin: 0.85rem 0 0;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
   .bd-total b { color: var(--text); }
 
-  .list { padding: 0.25rem 1rem; }
+  /* ---- transactions ---- */
+  .list { padding: 0.35rem 1.1rem; }
   ul { list-style: none; margin: 0; padding: 0; }
-  li { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
-       padding: 0.6rem 0; border-top: 1px solid var(--border); }
-  li:first-child { border-top: none; }
   li.voided { opacity: 0.5; }
   li.voided .t-amt { text-decoration: line-through; }
   .t-main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
   .t-desc { color: var(--text); font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .t-sub { color: var(--text-dim); font-size: 0.76rem; }
-  .t-sub .v { color: var(--danger); }
-  .t-amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .t-amt.pay { color: var(--primary); }
+  .t-sub .v { color: var(--danger); font-weight: 600; }
+  .t-amt { font-weight: 600; font-size: 0.9rem; white-space: nowrap; }
 </style>

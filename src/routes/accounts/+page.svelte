@@ -69,7 +69,11 @@
   <p class="lead">Saldo real-time dari ledger (view saldo).</p>
 
   {#if loading}
-    <div class="card"><p class="muted">Memuat saldo…</p></div>
+    <div class="card">
+      <div class="skeleton sk-head" style="width: 38%;"></div>
+      <div class="skeleton sk-line" style="width: 100%;"></div>
+      <div class="skeleton sk-line" style="width: 72%;"></div>
+    </div>
   {:else if errorMsg}
     <div class="card"><p class="err">{errorMsg}</p></div>
   {:else if grouped.length === 0}
@@ -78,14 +82,14 @@
     {#each grouped as g}
       <div class="card group">
         <div class="group-head">
-          <h2>{g.label}</h2>
-          <span class="total">Rp {rupiah(g.total)}</span>
+          <h2 class="section-h">{g.label}</h2>
+          <span class="total num {g.total < 0 ? 'amount-neg' : 'amount-pos'}">Rp {rupiah(g.total)}</span>
         </div>
         <ul>
           {#each g.items as a}
-            <li>
+            <li class="row">
               <span class="acc">{a.code ? a.code + ' · ' : ''}{a.name}</span>
-              <span class="bal">Rp {rupiah(a.balance)}</span>
+              <span class="bal num {a.balance < 0 ? 'amount-neg' : ''}">Rp {rupiah(a.balance)}</span>
             </li>
           {/each}
         </ul>
@@ -95,19 +99,28 @@
 </section>
 
 <style>
-  h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.25rem; }
-  .lead { color: var(--text-muted); margin: 0 0 1rem; }
+  h1 { font-size: 1.45rem; font-weight: 700; margin: 0 0 0.25rem; letter-spacing: -0.01em; }
+  .lead { color: var(--text-muted); margin: 0 0 1.1rem; font-size: 0.9rem; }
   .muted { color: var(--text-muted); margin: 0; }
   .err { color: var(--danger); margin: 0; }
-  .group { margin-bottom: 0.75rem; }
-  .group-head { display: flex; justify-content: space-between; align-items: baseline;
-                margin-bottom: 0.5rem; }
-  .group-head h2 { font-size: 1rem; font-weight: 600; margin: 0; }
-  .group-head .total { font-weight: 700; color: var(--primary); }
+
+  /* loading skeletons */
+  .sk-head { height: 0.8rem; margin-bottom: 0.9rem; }
+  .sk-line { height: 0.95rem; }
+  .sk-line + .sk-line { margin-top: 0.6rem; }
+
+  .group { margin-bottom: 0.8rem; }
+  .group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+  }
+  .total { font-weight: 700; font-size: 0.95rem; }
+
   ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-  li { display: flex; justify-content: space-between; gap: 1rem;
-       padding: 0.5rem 0; border-top: 1px solid var(--border); }
-  li:first-child { border-top: none; }
-  .acc { color: var(--text); }
-  .bal { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .acc { color: var(--text); font-size: 0.9rem; min-width: 0; overflow-wrap: anywhere; }
+  .bal { font-weight: 600; font-size: 0.9rem; }
+  .bal:not(.amount-neg) { color: var(--text-muted); }
 </style>
