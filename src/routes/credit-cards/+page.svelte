@@ -56,6 +56,22 @@
     available: cards.reduce((s, c) => s + Number(c.available || 0), 0)
   });
 
+  // search + quick filters (list only; totals/ranking stay on ALL cards)
+  let search = $state('');
+  let filterMode = $state('all'); // 'all' | 'owing' | 'incomplete'
+  function isIncomplete(c) {
+    return c.due_day == null || c.statement_day == null || !Number(c.credit_limit || 0);
+  }
+  let visibleCards = $derived(
+    cards.filter((c) => {
+      const q = search.trim().toLowerCase();
+      if (q && !(`${c.card_name} ${c.issuer || ''}`.toLowerCase().includes(q))) return false;
+      if (filterMode === 'owing') return Number(c.current_balance || 0) > 0;
+      if (filterMode === 'incomplete') return isIncomplete(c);
+      return true;
+    })
+  );
+
   let ranking = $derived(
     cards
       .map((c) => ({ ...c, floatDays: daysUntilNextStatement(c.statement_day) }))
@@ -188,8 +204,21 @@
       <div><span class="muted">Tersedia</span><span class="tot ok-text">{fmt(summary.available)}</span></div>
     </div>
 
+    <div class="filter-bar">
+      <input class="search" type="search" placeholder="Cari kartu / bank…" bind:value={search} />
+      <div class="chips">
+        <button class="chip" class:on={filterMode === 'all'} onclick={() => (filterMode = 'all')}>Semua</button>
+        <button class="chip" class:on={filterMode === 'owing'} onclick={() => (filterMode = 'owing')}>Ada tagihan</button>
+        <button class="chip" class:on={filterMode === 'incomplete'} onclick={() => (filterMode = 'incomplete')}>Belum lengkap</button>
+      </div>
+    </div>
+
+    {#if visibleCards.length === 0}
+      <div class="card"><p class="muted">Tidak ada kartu yang cocok dengan filter.</p></div>
+    {/if}
+
     <div class="stack">
-      {#each cards as card (card.account_id)}
+      {#each visibleCards as card (card.account_id)}
         {@const rem = reminderFor(card.account_id)}
         {@const plans = plansFor(card.account_id)}
         <div class="card cc" class:over={card.over_limit}>
@@ -352,4 +381,13 @@
   .inline-form .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
   .hint { margin: 0; font-size: 0.75rem; color: var(--text-dim); }
   .form-err { margin: 0; font-size: 0.8rem; color: var(--danger); }
+
+  .filter-bar { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .search { padding: 0.55rem 0.75rem; font-size: 0.95rem; width: 100%; }
+  .chips { display: flex; gap: 0.4rem; overflow-x: auto; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; background: transparent; color: var(--text-muted); border: 1px solid var(--border);
+          border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+          white-space: nowrap; }
+  .chip.on { color: var(--primary-contrast); background: var(--primary); border-color: var(--primary); }
 </style>
