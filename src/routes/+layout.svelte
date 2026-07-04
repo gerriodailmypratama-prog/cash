@@ -2,6 +2,7 @@
   import '../app.css';
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
+  import UpdateBanner from '$lib/UpdateBanner.svelte';
 
   let { children } = $props();
 
@@ -46,6 +47,8 @@
     {/each}
   </nav>
 </div>
+
+<UpdateBanner />
 
 <style>
   .app-shell {
