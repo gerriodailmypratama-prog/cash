@@ -1,0 +1,9 @@
+{
+  // Kas email ingest worker — statements@gerriolab.com -> R2 (PR-CL22)
+  "name": "kas-email-ingest",
+  "main": "index.js",
+  "compatibility_date": "2025-01-01",
+  "r2_buckets": [
+    { "binding": "STATEMENTS", "bucket_name": "kas-statements" }
+  ]
+}

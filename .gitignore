@@ -10,3 +10,4 @@ vite.config.ts.timestamp-*
 .DS_Store
 .wrangler
 .vercel
+workers/**/node_modules/
