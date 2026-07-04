@@ -11,3 +11,7 @@ vite.config.ts.timestamp-*
 .wrangler
 .vercel
 workers/**/node_modules/
+
+# statement unlock keys — never commit
+workers/**/.secrets/
+.secrets/
