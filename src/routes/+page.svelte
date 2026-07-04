@@ -76,26 +76,31 @@
   <p class="lead">Ringkasan saldo, arus kas, dan kartu kredit kamu.</p>
 
   {#if loading}
-    <div class="card"><p class="muted">Memuat ringkasan…</p></div>
+    <div class="card" aria-busy="true">
+      <div class="skeleton" style="width: 45%;"></div>
+      <div class="skeleton sk-big" style="width: 72%;"></div>
+      <div class="skeleton" style="width: 58%;"></div>
+    </div>
   {:else if errorMsg}
     <div class="card"><p class="err">{errorMsg}</p></div>
   {:else}
-    <div class="grid">
-      <div class="card">
-        <span class="card-label">Total Saldo Likuid</span>
-        <span class="card-value">Rp {rupiah(totalLikuid)}</span>
+    <div class="stat-grid">
+      <div class="card-hero hero">
+        <span class="stat-label">Total Saldo Likuid</span>
+        <span class="hero-value num">Rp {rupiah(totalLikuid)}</span>
+        <span class="live"><span class="pulse-dot"></span> live dari ledger</span>
       </div>
-      <div class="card">
-        <span class="card-label">Pengeluaran Bulan Ini</span>
-        <span class="card-value">Rp {rupiah(expenseMonth)}</span>
+      <div class="card stat">
+        <span class="stat-label">Pengeluaran Bulan Ini</span>
+        <span class="stat-value num">Rp {rupiah(expenseMonth)}</span>
       </div>
     </div>
 
+    <div class="list-head">
+      <h2 class="section-h">Transaksi Terakhir</h2>
+      <a href="/transactions" class="link">Lihat semua</a>
+    </div>
     <div class="card">
-      <div class="head">
-        <h2>Transaksi Terakhir</h2>
-        <a href="/transactions" class="link">Lihat semua</a>
-      </div>
       {#if recent.length === 0}
         <p class="muted">
           Belum ada transaksi. Mulai dari
@@ -104,14 +109,15 @@
       {:else}
         <ul>
           {#each recent as t}
-            <li>
+            <li class="row">
+              <span class="tx-glyph" aria-hidden="true">↗</span>
               <div class="tx-main">
                 <span class="tx-route">{t.fromLabel} → {t.toLabel}</span>
                 {#if t.memo}<span class="tx-memo">{t.memo}</span>{/if}
               </div>
               <div class="tx-side">
-                <span class="tx-amt" class:void={t.status === 'void'}>Rp {rupiah(t.amount)}</span>
-                <span class="tx-date">{t.date}</span>
+                <span class="tx-amt num" class:void={t.status === 'void'}>Rp {rupiah(t.amount)}</span>
+                <span class="tx-date num">{t.date}</span>
               </div>
             </li>
           {/each}
@@ -122,26 +128,130 @@
 </section>
 
 <style>
-  h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.25rem; }
-  .lead { color: var(--text-muted); margin: 0 0 1rem; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; }
-  .card-label { display: block; font-size: 0.8rem; color: var(--text-muted); }
-  .card-value { display: block; font-size: 1.35rem; font-weight: 700; margin-top: 0.25rem;
-                font-variant-numeric: tabular-nums; }
-  .muted { color: var(--text-muted); margin: 0; }
+  h1 { font-size: 1.45rem; font-weight: 700; margin: 0 0 0.25rem; }
+  .lead { color: var(--text-muted); margin: 0 0 1.1rem; font-size: 0.9rem; }
+
+  /* loading skeletons */
+  .skeleton { margin: 0.45rem 0; }
+  .skeleton:first-child { margin-top: 0; }
+  .skeleton:last-child { margin-bottom: 0; }
+  .sk-big { min-height: 1.9rem; }
+
+  /* ---- stat cards ---- */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .hero {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .stat-label {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+  .hero-value {
+    display: block;
+    font-size: 1.9rem;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+  .live {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    justify-content: center;
+  }
+  .stat-value {
+    display: block;
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  @media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ---- recent transactions ---- */
+  .list-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin: 0 0.15rem 0.55rem;
+  }
+  .link {
+    color: var(--primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: filter 0.18s ease;
+  }
+  .link:hover { filter: brightness(1.15); }
+
+  .muted { color: var(--text-muted); margin: 0; font-size: 0.88rem; }
   .err { color: var(--danger); margin: 0; }
-  .link { color: var(--primary); }
-  .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; }
-  .head h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+
   ul { list-style: none; margin: 0; padding: 0; }
-  li { display: flex; justify-content: space-between; gap: 0.75rem;
-       padding: 0.6rem 0; border-top: 1px solid var(--border); }
-  li:first-child { border-top: none; }
-  .tx-main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-  .tx-route { color: var(--text); font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tx-memo { color: var(--text-dim); font-size: 0.78rem; }
-  .tx-side { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; white-space: nowrap; }
-  .tx-amt { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .row { min-height: 40px; }
+  .tx-glyph {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .tx-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+    flex: 1;
+  }
+  .tx-route {
+    color: var(--text);
+    font-size: 0.88rem;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tx-memo {
+    color: var(--text-dim);
+    font-size: 0.76rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tx-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.15rem;
+    white-space: nowrap;
+  }
+  .tx-amt { font-weight: 700; font-size: 0.9rem; }
   .tx-amt.void { text-decoration: line-through; color: var(--text-dim); }
-  .tx-date { color: var(--text-dim); font-size: 0.78rem; }
+  .tx-date { color: var(--text-dim); font-size: 0.74rem; }
 </style>

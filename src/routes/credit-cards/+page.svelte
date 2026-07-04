@@ -211,33 +211,37 @@
   <p class="lead">Limit, tagihan, jatuh tempo, dan cicilan jalan.</p>
 
   {#if loading}
-    <div class="card"><p class="muted">Memuat…</p></div>
+    <div class="card loading">
+      <div class="skeleton" style="width:55%"></div>
+      <div class="skeleton" style="width:85%"></div>
+      <div class="skeleton" style="width:40%"></div>
+    </div>
   {:else if errorMsg}
     <div class="card err"><p>{errorMsg}</p></div>
   {:else if cards.length === 0}
     <div class="card"><p class="muted">Belum ada kartu kredit. Tambahkan kartu sebagai akun LIABILITY lalu daftarkan di tabel credit_cards.</p></div>
   {:else}
     {#if bestCard}
-      <div class="card best">
-        <span class="best-label">💳 Gesek hari ini</span>
+      <div class="card-hero best">
+        <span class="section-h">💳 Gesek hari ini</span>
         <div class="best-row">
           <span class="best-name">{bestCard.card_name}</span>
-          <span class="best-float">invoice berikutnya <b>{bestCard.floatDays} hari</b> lagi</span>
+          <span class="best-float">invoice berikutnya <b class="num">{bestCard.floatDays} hari</b> lagi</span>
         </div>
         {#if ranking.length > 1}
           <div class="runner-up">
             {#each ranking.slice(1, 3) as r}
-              <span>{r.card_name} · {r.floatDays}h</span>
+              <span>{r.card_name} · <span class="num">{r.floatDays}h</span></span>
             {/each}
           </div>
         {/if}
       </div>
     {/if}
 
-    <div class="card totals">
-      <div><span class="muted">Total limit</span><span class="tot">{fmt(summary.limit)}</span></div>
-      <div><span class="muted">Tagihan</span><span class="tot">{fmt(summary.owing)}</span></div>
-      <div><span class="muted">Tersedia</span><span class="tot ok-text">{fmt(summary.available)}</span></div>
+    <div class="card-glass totals">
+      <div><span class="lbl">Total limit</span><span class="tot num">{fmt(summary.limit)}</span></div>
+      <div><span class="lbl">Tagihan</span><span class="tot num">{fmt(summary.owing)}</span></div>
+      <div><span class="lbl">Tersedia</span><span class="tot num amount-pos">{fmt(summary.available)}</span></div>
     </div>
 
     <div class="filter-bar">
@@ -248,6 +252,8 @@
         <button class="chip" class:on={filterMode === 'incomplete'} onclick={() => (filterMode = 'incomplete')}>Belum lengkap</button>
       </div>
     </div>
+
+    <h2 class="section-h list-h">Daftar kartu</h2>
 
     {#if visibleCards.length === 0}
       <div class="card"><p class="muted">Tidak ada kartu yang cocok dengan filter.</p></div>
@@ -264,38 +270,38 @@
               {#if card.issuer}<span class="cc-issuer">{card.issuer}</span>{/if}
             </div>
             {#if card.over_limit}
-              <span class="badge bad">OVER LIMIT</span>
+              <span class="badge badge-danger">OVER LIMIT</span>
             {:else if rem}
-              <span class="badge warn">Jatuh tempo {rem.days_until_due} hari lagi</span>
+              <span class="badge badge-warning">Jatuh tempo {rem.days_until_due} hari lagi</span>
             {/if}
           </div>
 
           <div class="cc-balance">
             <span class="muted">Tagihan berjalan</span>
-            <span class="big">{fmt(card.current_balance)}</span>
+            <span class="big num">{fmt(card.current_balance)}</span>
           </div>
 
           <div class="util-row">
             <div class="util-bar">
               <div class="util-fill {utilClass(card.util_pct)}" style="width:{Math.min(card.util_pct ?? 0, 100)}%"></div>
             </div>
-            <span class="util-pct {utilClass(card.util_pct)}">{card.util_pct == null ? '—' : card.util_pct + '%'}</span>
+            <span class="util-pct num {utilClass(card.util_pct)}">{card.util_pct == null ? '—' : card.util_pct + '%'}</span>
           </div>
 
           <div class="cc-meta">
-            <div><span class="muted">Limit</span><span>{fmt(card.credit_limit)}</span></div>
-            <div><span class="muted">Tersedia</span><span>{fmt(card.available)}</span></div>
-            <div><span class="muted">Due day</span><span>{card.due_day ?? '—'}</span></div>
-            <div><span class="muted">Statement</span><span>{card.statement_day ?? '—'}</span></div>
+            <div><span class="muted">Limit</span><span class="num">{fmt(card.credit_limit)}</span></div>
+            <div><span class="muted">Tersedia</span><span class="num">{fmt(card.available)}</span></div>
+            <div><span class="muted">Due day</span><span class="num">{card.due_day ?? '—'}</span></div>
+            <div><span class="muted">Statement</span><span class="num">{card.statement_day ?? '—'}</span></div>
           </div>
 
           {#if plans.length > 0}
             <div class="installments">
-              <span class="muted small">Cicilan jalan</span>
+              <span class="section-h">Cicilan jalan</span>
               {#each plans as p (p.id)}
                 <div class="inst-row">
-                  <span>{fmt(p.monthly_amount)}/bln</span>
-                  <span class="muted">sisa {p.remaining}/{p.tenor}×</span>
+                  <span class="num">{fmt(p.monthly_amount)}/bln</span>
+                  <span class="muted num">sisa {p.remaining}/{p.tenor}×</span>
                 </div>
               {/each}
             </div>
@@ -306,10 +312,10 @@
           {/if}
 
           <div class="actions">
-            <button class="act pay" onclick={() => togglePay(card)}>Bayar</button>
-            <button class="act" onclick={() => toggleAdjust(card)}>Samakan tagihan</button>
-            <button class="act" onclick={() => toggleEdit(card)}>Edit kartu</button>
-            <a class="act detail" href="/credit-cards/{card.account_id}">Detail →</a>
+            <button class="btn-primary act-pay" onclick={() => togglePay(card)}>Bayar</button>
+            <button class="btn-ghost act-btn" onclick={() => toggleAdjust(card)}>Samakan tagihan</button>
+            <button class="btn-ghost act-btn" onclick={() => toggleEdit(card)}>Edit kartu</button>
+            <a class="act-detail" href="/credit-cards/{card.account_id}">Detail →</a>
           </div>
 
           {#if payId === card.account_id}
@@ -377,81 +383,89 @@
 </section>
 
 <style>
-  h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.25rem; }
-  .lead { color: var(--text-muted); margin: 0 0 1rem; }
+  h1 { font-size: 1.45rem; font-weight: 700; margin: 0 0 0.25rem; }
+  .lead { color: var(--text-muted); margin: 0 0 1.1rem; }
   .muted { color: var(--text-muted); }
-  .small { font-size: 0.8rem; }
   .err { border-color: var(--danger); color: var(--danger); }
+  .err p { margin: 0; }
 
+  /* loading skeletons */
+  .loading { display: flex; flex-direction: column; gap: 0.65rem; }
+  .loading .skeleton { height: 0.95rem; }
+
+  /* ---- hero: best card to swipe today ---- */
+  .best { margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .best-row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+  .best-name { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; }
+  .best-float { color: var(--text-muted); font-size: 0.85rem; }
+  .best-float b { color: var(--text); font-weight: 700; }
+  .runner-up { display: flex; gap: 1rem; font-size: 0.78rem; color: var(--text-dim); }
+
+  /* ---- totals strip ---- */
+  .totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; }
+  .totals > div { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+  .lbl { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; color: var(--text-muted); }
+  .tot { font-weight: 700; font-size: 0.95rem; overflow-wrap: anywhere; }
+
+  /* ---- search + filter chips (chips come from global .chip) ---- */
+  .filter-bar { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.9rem; }
+  .search { padding: 0.6rem 0.85rem; font-size: 0.95rem; width: 100%; min-height: 42px; }
+  .chips { display: flex; gap: 0.4rem; overflow-x: auto; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+
+  .list-h { margin: 0 0 0.6rem; }
+
+  /* ---- card list ---- */
   .stack { display: flex; flex-direction: column; gap: 0.75rem; }
-  .cc.over { border-color: var(--danger); }
+  .cc { transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease; }
+  .cc:hover { transform: translateY(-1px); border-color: var(--primary); }
+  .cc.over, .cc.over:hover { border-color: var(--danger); }
 
   .cc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
-  .cc-name { font-weight: 700; color: var(--text); text-decoration: none; border-bottom: 1px dotted var(--text-dim); }
+  .cc-name { font-weight: 700; color: var(--text); border-bottom: 1px dotted var(--text-dim); transition: color 0.18s ease, border-color 0.18s ease; }
   .cc-name:hover { color: var(--primary); border-bottom-color: var(--primary); }
   .cc-issuer { color: var(--text-muted); margin-left: 0.5rem; font-size: 0.85rem; }
 
-  .badge { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 999px; white-space: nowrap; }
-  .badge.warn { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
-  .badge.bad { background: var(--danger-bg); color: var(--danger); }
+  .cc-balance { display: flex; flex-direction: column; margin: 0.8rem 0 0.55rem; }
+  .cc-balance .muted { font-size: 0.78rem; }
+  .cc-balance .big { font-size: 1.55rem; font-weight: 800; letter-spacing: -0.01em; }
 
-  .cc-balance { display: flex; flex-direction: column; margin: 0.75rem 0 0.5rem; }
-  .cc-balance .big { font-size: 1.6rem; font-weight: 700; }
-
-  .util-row { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; }
+  /* utilization bar: gradient fill, warn/bad states */
+  .util-row { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem; }
   .util-bar { flex: 1; height: 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
-  .util-fill { height: 100%; background: var(--primary); transition: width 0.3s ease; }
+  .util-fill { height: 100%; background: var(--grad-primary); border-radius: 999px; transition: width 0.3s ease; }
   .util-fill.warn { background: var(--warning); }
   .util-fill.bad { background: var(--danger); }
-  .util-pct { font-size: 0.85rem; font-weight: 600; color: var(--primary); min-width: 3ch; text-align: right; }
+  .util-pct { font-size: 0.85rem; font-weight: 700; color: var(--primary); min-width: 3ch; text-align: right; }
   .util-pct.warn { color: var(--warning); }
   .util-pct.bad { color: var(--danger); }
 
   .cc-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 1rem; }
-  .cc-meta div { display: flex; justify-content: space-between; font-size: 0.9rem; }
+  .cc-meta div { display: flex; justify-content: space-between; font-size: 0.88rem; }
+  .cc-meta .muted { font-size: 0.8rem; }
 
-  .installments { margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.3rem; }
+  .installments { margin-top: 0.8rem; padding-top: 0.65rem; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.35rem; }
   .inst-row { display: flex; justify-content: space-between; font-size: 0.88rem; }
-
-  .best { border-color: var(--primary); margin-bottom: 0.75rem; }
-  .best-label { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; color: var(--primary); }
-  .best-row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-top: 0.3rem; }
-  .best-name { font-size: 1.2rem; font-weight: 700; }
-  .best-float { color: var(--text-muted); font-size: 0.85rem; }
-  .best-float b { color: var(--text); }
-  .runner-up { display: flex; gap: 1rem; margin-top: 0.4rem; font-size: 0.78rem; color: var(--text-dim); }
-
-  .totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; }
-  .totals div { display: flex; flex-direction: column; gap: 0.15rem; }
-  .totals .muted { font-size: 0.75rem; }
-  .tot { font-weight: 700; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
-  .ok-text { color: var(--primary); }
 
   .memo-flag { margin: 0.6rem 0 0; font-size: 0.78rem; color: var(--warning); }
 
-  .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; align-items: center; }
-  .act { background: transparent; color: var(--text-muted); border: 1px solid var(--border);
-         border-radius: var(--radius-sm); padding: 0.3rem 0.7rem; font-size: 0.8rem; cursor: pointer;
-         text-decoration: none; display: inline-flex; }
-  .act:hover { color: var(--text); border-color: var(--text-dim); }
-  .act.pay { color: var(--primary); border-color: var(--primary); font-weight: 600; }
-  .act.detail { margin-left: auto; border-color: transparent; color: var(--primary); }
+  /* ---- actions ---- */
+  .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.85rem; align-items: center; }
+  .actions .act-pay { padding: 0.4rem 1rem; font-size: 0.82rem; min-height: 40px; }
+  .actions .act-btn { padding: 0.4rem 0.85rem; font-size: 0.8rem; min-height: 40px; color: var(--text-muted); }
+  .actions .act-btn:hover { color: var(--text); }
+  .act-detail { margin-left: auto; display: inline-flex; align-items: center; min-height: 40px; padding: 0 0.45rem;
+                color: var(--primary); font-size: 0.82rem; font-weight: 600; border-radius: var(--radius-sm);
+                transition: background-color 0.18s ease; }
+  .act-detail:hover { background-color: var(--primary-soft); }
 
-  .inline-form { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--border);
+  /* ---- inline forms ---- */
+  .inline-form { margin-top: 0.85rem; padding-top: 0.85rem; border-top: 1px dashed var(--border);
                  display: flex; flex-direction: column; gap: 0.6rem; }
   .inline-form label { display: flex; flex-direction: column; gap: 0.3rem; }
-  .inline-form label span { font-size: 0.8rem; color: var(--text-muted); }
-  .inline-form input { padding: 0.55rem 0.7rem; font-size: 1rem; width: 100%; }
+  .inline-form label span { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+  .inline-form input, .inline-form select { padding: 0.55rem 0.7rem; font-size: 1rem; width: 100%; min-height: 42px; }
   .inline-form .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
   .hint { margin: 0; font-size: 0.75rem; color: var(--text-dim); }
   .form-err { margin: 0; font-size: 0.8rem; color: var(--danger); }
-
-  .filter-bar { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; }
-  .search { padding: 0.55rem 0.75rem; font-size: 0.95rem; width: 100%; }
-  .chips { display: flex; gap: 0.4rem; overflow-x: auto; scrollbar-width: none; }
-  .chips::-webkit-scrollbar { display: none; }
-  .chip { flex: 0 0 auto; background: transparent; color: var(--text-muted); border: 1px solid var(--border);
-          border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.78rem; font-weight: 600; cursor: pointer;
-          white-space: nowrap; }
-  .chip.on { color: var(--primary-contrast); background: var(--primary); border-color: var(--primary); }
 </style>

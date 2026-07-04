@@ -133,19 +133,28 @@
   <p class="lead">Catat transaksi cepat.</p>
 
   {#if loading}
-    <div class="card"><p class="muted">Memuat akun…</p></div>
+    <div class="card loading">
+      <div class="skeleton" style="width: 42%; height: 0.9rem;"></div>
+      <div class="skeleton" style="width: 100%; height: 2.9rem;"></div>
+      <div class="skeleton" style="width: 68%; height: 0.9rem;"></div>
+    </div>
   {:else}
-    <div class="modes">
-      <button class="mode" class:active={mode === 'expense'} on:click={() => setMode('expense')}>Pengeluaran</button>
-      <button class="mode" class:active={mode === 'income'} on:click={() => setMode('income')}>Pemasukan</button>
-      <button class="mode" class:active={mode === 'transfer'} on:click={() => setMode('transfer')}>Transfer</button>
+    <h2 class="section-h sh">Jenis</h2>
+    <div class="modes" role="group" aria-label="Jenis transaksi">
+      <button class="seg" class:on={mode === 'expense'} on:click={() => setMode('expense')}>Pengeluaran</button>
+      <button class="seg" class:on={mode === 'income'} on:click={() => setMode('income')}>Pemasukan</button>
+      <button class="seg" class:on={mode === 'transfer'} on:click={() => setMode('transfer')}>Transfer</button>
     </div>
 
+    <h2 class="section-h sh">Detail</h2>
     <div class="card form">
       <label>
         <span>Jumlah</span>
-        <input type="number" inputmode="decimal" min="0" step="any"
-               bind:value={amount} placeholder="0" />
+        <div class="amount-wrap">
+          <span class="rp" aria-hidden="true">Rp</span>
+          <input class="amount num" type="number" inputmode="decimal" min="0" step="any"
+                 bind:value={amount} placeholder="0" />
+        </div>
       </label>
 
       <label>
@@ -182,10 +191,13 @@
 
       {#if errorMsg}<p class="err">{errorMsg}</p>{/if}
       {#if okMsg}
-        <p class="ok">{okMsg} <a href="/transactions" class="link">Lihat transaksi</a></p>
+        <div class="ok-row">
+          <span class="badge badge-primary">✓ {okMsg}</span>
+          <a href="/transactions" class="link">Lihat transaksi →</a>
+        </div>
       {/if}
 
-      <button class="btn-primary" on:click={submit} disabled={saving}>
+      <button class="btn-primary submit" on:click={submit} disabled={saving}>
         {saving ? 'Menyimpan…' : 'Simpan transaksi'}
       </button>
     </div>
@@ -193,22 +205,108 @@
 </section>
 
 <style>
-  h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.25rem; }
-  .lead { color: var(--text-muted); margin: 0 0 1rem; }
-  .muted { color: var(--text-muted); margin: 0; }
-  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin-bottom: 0.75rem; }
-  .mode { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border);
-          border-radius: var(--radius-sm); padding: 0.5rem 0.25rem; font-size: 0.85rem; font-weight: 600;
-          cursor: pointer; }
-  .mode.active { color: var(--primary-contrast); background: var(--primary); border-color: var(--primary); }
-  .form { display: flex; flex-direction: column; gap: 0.75rem; }
-  label { display: flex; flex-direction: column; gap: 0.35rem; }
-  label span { font-size: 0.85rem; color: var(--text-muted); }
-  label small { color: var(--text-dim); }
-  input, select { padding: 0.6rem 0.7rem; font-size: 1rem; width: 100%; }
-  .btn-primary { margin-top: 0.5rem; }
-  .err { color: var(--danger); background: var(--danger-bg); padding: 0.5rem 0.7rem;
-         border-radius: var(--radius-sm); margin: 0; }
-  .ok { color: var(--primary); margin: 0; }
-  .link { color: var(--primary); text-decoration: underline; }
+  h1 {
+    font-size: 1.45rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.25rem;
+  }
+  .lead { color: var(--text-muted); font-size: 0.9rem; margin: 0 0 1.1rem; }
+
+  /* loading skeletons */
+  .loading { display: flex; flex-direction: column; gap: 0.8rem; }
+
+  /* section headers */
+  .sh { display: flex; margin: 0 0 0.5rem; }
+
+  /* segmented mode toggle — chip-style pills, gradient when active */
+  .modes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+  }
+  .seg {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.5rem 0.25rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  .seg:hover { border-color: var(--border-strong); color: var(--text); }
+  .seg.on {
+    color: var(--primary-contrast);
+    background: var(--grad-primary);
+    border-color: transparent;
+    box-shadow: 0 2px 12px var(--primary-glow);
+  }
+
+  /* form */
+  .form { display: flex; flex-direction: column; gap: 0.85rem; }
+  label { display: flex; flex-direction: column; gap: 0.4rem; }
+  label > span {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text-muted);
+  }
+  label small { color: var(--text-dim); font-weight: 400; }
+  input, select { padding: 0.6rem 0.75rem; font-size: 1rem; width: 100%; min-height: 44px; }
+
+  /* big centered amount with Rp prefix */
+  .amount-wrap { position: relative; }
+  .rp {
+    position: absolute;
+    left: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+  .amount {
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    padding: 0.45rem 3rem;
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  .amount::-webkit-outer-spin-button,
+  .amount::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  /* feedback */
+  .err {
+    color: var(--danger);
+    background: var(--danger-bg);
+    padding: 0.55rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    margin: 0;
+  }
+  .ok-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .link {
+    color: var(--primary);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .submit { width: 100%; min-height: 46px; font-size: 0.95rem; margin-top: 0.4rem; }
 </style>
