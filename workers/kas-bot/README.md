@@ -1,9 +1,9 @@
 # kas-bot (Telegram capture bot)
 
-Snap a receipt or type a note → Claude parses it → you confirm with a tap →
-it posts to the Kas ledger via `cash.post_transaction`. A 15-minute cron also
-pings you when a new bank statement lands in R2 (full statement auto-import is
-Fase B).
+Snap a receipt or type a note → **Cloudflare Workers AI** (free tier) parses it →
+you confirm with a tap → it posts to the Kas ledger via `cash.post_transaction`.
+A 15-minute cron also pings you when a new bank statement lands in R2 (full
+statement auto-import is Fase B).
 
 **Money safety:** the bot only ever writes after an explicit **✅ Ya** tap, and
 every write goes through the same `post_transaction` RPC the app uses (amount>0,
@@ -13,7 +13,7 @@ worker secrets.
 ## Architecture
 ```
 Telegram ──webhook──▶ kas-bot (Cloudflare Worker)
-                          │  parse (Claude API: text or receipt vision)
+                          │  parse (Workers AI: text model / receipt vision model)
                           │  fetch account context (Supabase REST, cash schema)
                           ▼
                     confirm message  ──✅──▶ cash.post_transaction ──▶ ledger
@@ -21,71 +21,66 @@ Telegram ──webhook──▶ kas-bot (Cloudflare Worker)
 R2 kas-statements ──cron every 15m──▶ "statement baru masuk" ping
 ```
 
-## Owner setup (one-time)
+## Current deployment status
+Already provisioned by the setup session:
+- ✅ KV namespace created + wired (`BOT_KV`).
+- ✅ Worker deployed → `https://kas-bot.gerriodailmypratama.workers.dev`.
+- ✅ `TELEGRAM_WEBHOOK_SECRET` set (agent-generated).
+- ✅ Parse brain = Workers AI (`AI` binding) — **no external API key, no billing**.
+
+**Remaining owner steps: set the 3 secrets below, then hit `/setup`.**
+
+## Owner setup
 
 Anything with a token or key is **your hands only** — the agent never types these.
 
-### 1. Create the bot
-- Telegram → **@BotFather** → `/newbot` → pick a name + username.
-- Copy the **bot token** it gives you (looks like `12345:AA...`).
+### 1. Create the bot (→ `TELEGRAM_BOT_TOKEN`)
+Telegram → **@BotFather** → `/newbot` → pick a name + username. Copy the **bot
+token** (looks like `12345:AA...`). Keep it private — don't paste it in chat.
 
-### 2. Find the allowed chat ids
-- Telegram → **@userinfobot** → it replies with your numeric **Id**.
-- Do the same from Steffie's Telegram to get hers.
-- You'll paste both as `ALLOWED_CHAT_IDS` (comma-separated) in step 5.
+### 2. Find the allowed chat ids (→ `ALLOWED_CHAT_IDS`)
+Telegram → **@userinfobot** → `/start` → it replies with your numeric **Id**. Do
+the same from Steffie's Telegram. Both, comma-separated: `12345678,87654321`.
+(Chat ids aren't secret — fine to share.)
 
-### 3. Create the KV namespace
+### 3. Get the Supabase service key (→ `SUPABASE_SERVICE_KEY`)
+Supabase → Project Settings → API → **service_role** secret.
+> 🔴 This key can write the whole ledger. Treat it like a bank password — only
+> ever paste it into `wrangler secret put` or the Cloudflare dashboard, never
+> into a file, chat, or the repo.
+
+### 4. Set the 3 secrets
+Either terminal:
 ```
 cd workers/kas-bot
-npx wrangler kv namespace create kas_bot_kv
+npx wrangler secret put TELEGRAM_BOT_TOKEN
+npx wrangler secret put ALLOWED_CHAT_IDS
+npx wrangler secret put SUPABASE_SERVICE_KEY
 ```
-Paste the returned `id` into `wrangler.jsonc` (`kv_namespaces[0].id`).
+…or point-and-click: **Cloudflare dashboard → Workers & Pages → kas-bot →
+Settings → Variables and secrets → Add**, type **Secret (encrypt)**, exact names
+above.
 
-### 4. Pick a webhook secret
-Make up any random string (e.g. from a password manager). You'll use the same
-value in step 5 (`TELEGRAM_WEBHOOK_SECRET`) and step 7 (`secret_token`).
-
-### 5. Set the secrets
-Run each and paste the value when prompted:
-```
-npx wrangler secret put TELEGRAM_BOT_TOKEN        # from BotFather (step 1)
-npx wrangler secret put TELEGRAM_WEBHOOK_SECRET   # your random string (step 4)
-npx wrangler secret put ANTHROPIC_API_KEY         # console.anthropic.com key
-npx wrangler secret put ALLOWED_CHAT_IDS          # e.g. 12345678,87654321
-npx wrangler secret put SUPABASE_SERVICE_KEY      # 🔴 Supabase → Settings → API → service_role
-```
-> 🔴 The `service_role` key can write the whole ledger. Treat it like a bank
-> password: only ever paste it into `wrangler secret put`, never into a file,
-> chat, or the repo.
-
-Secrets can also be added point-and-click in the Cloudflare dashboard:
-**Workers & Pages → kas-bot → Settings → Variables and secrets → Add**, type set
-to **Secret (encrypt)**. Use the exact names above.
-
-### 6. Deploy
-```
-npx wrangler deploy
-```
-Deployed URL: `https://kas-bot.gerriodailmypratama.workers.dev` (also set as the
-`WORKER_URL` var). Deploy can run before secrets are set — the worker just stays
-idle until they exist.
-
-### 7. Register the webhook (no curl needed)
-The worker registers itself. Once the secrets are set, either:
+### 5. Finish (register the webhook — no curl)
+The worker registers itself. Once the secrets exist, either:
 - visit `https://kas-bot.gerriodailmypratama.workers.dev/setup?secret=<TELEGRAM_WEBHOOK_SECRET>` once, **or**
 - do nothing — the 15-min cron auto-registers on its next tick.
 
-### 8. Test
-Message your bot: `/start`, then try `kopi 25rb pake cimb` or send a receipt
-photo. Confirm the card shows up, tap **✅ Ya**, and check kas.gerriolab.com.
+### 6. Test
+Message your bot: `/start`, then `kopi 25rb pake cimb` or send a receipt photo.
+Confirm the card, tap **✅ Ya**, and check kas.gerriolab.com.
 
 ## Config (`wrangler.jsonc` vars — non-secret)
 - `SUPABASE_URL` — project REST base.
 - `DB_SCHEMA` — `cash`.
-- `MODEL` — Claude model for parsing (default `claude-sonnet-5`).
+- `WORKER_URL` — this worker's public URL (used by self-registration).
+- `TEXT_MODEL` / `VISION_MODEL` — Workers AI models for note / receipt parsing.
 
 ## Notes
-- No npm dependencies — pure Web APIs (`fetch`, `crypto`, `btoa`).
+- No npm dependencies — pure Web APIs (`fetch`, `crypto`).
+- Parse runs on Workers AI free tier; every proposal is confirm-gated, so an
+  occasional miss is caught before it's written. Swap `TEXT_MODEL`/`VISION_MODEL`
+  to tune accuracy vs cost.
 - Strangers are silently ignored (only `ALLOWED_CHAT_IDS` are answered).
 - Pending confirmations + retry-dedup + statement-seen marks live in `BOT_KV`
   with short TTLs.

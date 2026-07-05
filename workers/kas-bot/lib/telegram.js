@@ -62,17 +62,13 @@ export function editReplyMarkup(token, chatId, messageId, replyMarkup = { inline
   });
 }
 
-// Download a Telegram photo/file as base64 (for Claude vision). Telegram is a
-// 2-step fetch: getFile -> file_path, then download from the file endpoint.
-export async function getFileBase64(token, fileId) {
+// Download a Telegram photo as a byte array (Workers AI vision wants raw bytes).
+// Telegram is a 2-step fetch: getFile -> file_path, then download the file.
+export async function getFileBytes(token, fileId) {
   const meta = await call(token, 'getFile', { file_id: fileId });
   const path = meta?.result?.file_path;
   if (!path) return null;
   const r = await fetch(FILE(token, path));
   if (!r.ok) return null;
-  const buf = new Uint8Array(await r.arrayBuffer());
-  let bin = '';
-  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
-  const mime = /\.png$/i.test(path) ? 'image/png' : 'image/jpeg';
-  return { base64: btoa(bin), mime };
+  return [...new Uint8Array(await r.arrayBuffer())];
 }
