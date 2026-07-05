@@ -113,8 +113,26 @@ async function viaWorkersAI(env, sys, text, imageBytes) {
 export async function parseInput(env, { text, imageBytes }, ctx, today) {
   const { byHandle, lines } = buildHandles(ctx);
   const sys = prompt(lines, today);
-  const raw = env.GEMINI_API_KEY
-    ? await viaGemini(env, sys, text, imageBytes)
-    : await viaWorkersAI(env, sys, text, imageBytes);
-  return resolve(extractJson(raw), byHandle);
+
+  const run = async (provider) => {
+    const raw = provider === 'gemini'
+      ? await viaGemini(env, sys, text, imageBytes)
+      : await viaWorkersAI(env, sys, text, imageBytes);
+    return extractJson(raw);
+  };
+
+  // Prefer Gemini when a key is set, but never let its rate limits / hiccups
+  // break capture: fall back to the free Workers AI on any error.
+  let out;
+  if (env.GEMINI_API_KEY) {
+    try {
+      out = await run('gemini');
+    } catch (e) {
+      console.log('gemini failed -> workers-ai fallback: ' + (e?.message || e));
+      out = await run('workers-ai');
+    }
+  } else {
+    out = await run('workers-ai');
+  }
+  return resolve(out, byHandle);
 }
