@@ -17,6 +17,9 @@
     { "binding": "STATEMENTS", "bucket_name": "kas-statements" }
   ],
 
+  // Cloudflare Workers AI — the parse brain (free tier, no external key).
+  "ai": { "binding": "AI" },
+
   // Scan R2 for new statements every 15 min and ping the owner.
   "triggers": {
     "crons": ["*/15 * * * *"]
@@ -27,7 +30,8 @@
   "vars": {
     "SUPABASE_URL": "https://ryuwnsxwtwfmndnbysxw.supabase.co",
     "DB_SCHEMA": "cash",
-    "MODEL": "claude-sonnet-5",
-    "WORKER_URL": "https://kas-bot.gerriodailmypratama.workers.dev"
+    "WORKER_URL": "https://kas-bot.gerriodailmypratama.workers.dev",
+    "TEXT_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "VISION_MODEL": "@cf/meta/llama-3.2-11b-vision-instruct"
   }
 }

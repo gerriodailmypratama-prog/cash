@@ -10,7 +10,7 @@
 // - Only allow-listed chat ids (owner + spouse) are answered; others ignored.
 // - Service key lives only in worker secrets; every write is confirm-gated.
 
-import { sendMessage, setWebhook, confirmKeyboard, answerCallback, editReplyMarkup, getFileBase64 } from './lib/telegram.js';
+import { sendMessage, setWebhook, confirmKeyboard, answerCallback, editReplyMarkup, getFileBytes } from './lib/telegram.js';
 import { accountContext, buildTx, postTransaction } from './lib/ledger.js';
 import { parseInput } from './lib/parse.js';
 
@@ -53,11 +53,11 @@ const HELP = [
 ].join('\n');
 
 // ---- capture: run parse, validate, stash pending, show confirm ----
-async function handleCapture(env, chatId, { text, image, srcText }) {
+async function handleCapture(env, chatId, { text, imageBytes, srcText }) {
   const ctx = await accountContext(env);
   let proposal;
   try {
-    proposal = await parseInput(env, { text, image }, ctx, today());
+    proposal = await parseInput(env, { text, imageBytes }, ctx, today());
   } catch (e) {
     console.log('parse error: ' + e.message);
     return sendMessage(env.TELEGRAM_BOT_TOKEN, chatId, '😵 Gagal baca. Coba ketik ulang lebih jelas ya.');
@@ -129,9 +129,9 @@ async function handleMessage(env, msg) {
   if (msg.photo?.length) {
     await sendMessage(token, chatId, '⏳ Lagi baca struknya...');
     const fileId = msg.photo[msg.photo.length - 1].file_id;
-    const image = await getFileBase64(token, fileId);
-    if (!image) return sendMessage(token, chatId, '😵 Gagal ambil fotonya. Coba kirim ulang.');
-    return handleCapture(env, chatId, { text, image, srcText: text || 'foto struk' });
+    const imageBytes = await getFileBytes(token, fileId);
+    if (!imageBytes) return sendMessage(token, chatId, '😵 Gagal ambil fotonya. Coba kirim ulang.');
+    return handleCapture(env, chatId, { text, imageBytes, srcText: text || 'foto struk' });
   }
 
   if (!text) return;
