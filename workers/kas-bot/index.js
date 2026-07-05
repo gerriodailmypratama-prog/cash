@@ -10,7 +10,7 @@
 // - Only allow-listed chat ids (owner + spouse) are answered; others ignored.
 // - Service key lives only in worker secrets; every write is confirm-gated.
 
-import { sendMessage, confirmKeyboard, answerCallback, editReplyMarkup, getFileBase64 } from './lib/telegram.js';
+import { sendMessage, setWebhook, confirmKeyboard, answerCallback, editReplyMarkup, getFileBase64 } from './lib/telegram.js';
 import { accountContext, buildTx, postTransaction } from './lib/ledger.js';
 import { parseInput } from './lib/parse.js';
 
@@ -150,6 +150,20 @@ async function handleMessage(env, msg) {
 
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
+
+    // One-time self-registration: point Telegram at this worker. Gated by the
+    // webhook secret so only the owner can trigger it. This is how the owner
+    // finishes setup without running curl or handing the bot token to anyone.
+    if (request.method === 'GET' && url.pathname === '/setup') {
+      if (url.searchParams.get('secret') !== env.TELEGRAM_WEBHOOK_SECRET) {
+        return new Response('forbidden', { status: 403 });
+      }
+      const res = await setWebhook(env.TELEGRAM_BOT_TOKEN, env.WORKER_URL, env.TELEGRAM_WEBHOOK_SECRET);
+      return new Response(res.ok ? '✅ Webhook terpasang. Bot siap — coba /start di Telegram.' : `Gagal: ${JSON.stringify(res)}`,
+        { status: res.ok ? 200 : 500 });
+    }
+
     if (request.method !== 'POST') return new Response('kas-bot', { status: 200 });
     if (request.headers.get('x-telegram-bot-api-secret-token') !== env.TELEGRAM_WEBHOOK_SECRET) {
       return new Response('forbidden', { status: 403 });
@@ -181,6 +195,14 @@ export default {
   // auto-unlock + parse + propose; for now this just surfaces it fast.
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
+      // Self-heal: make sure Telegram is pointed at us. Fires on the first cron
+      // tick after the owner sets the secrets — so setup finishes on its own
+      // even if they never visit /setup.
+      if (env.TELEGRAM_BOT_TOKEN && env.WORKER_URL && !(await env.BOT_KV.get('wh_set'))) {
+        const res = await setWebhook(env.TELEGRAM_BOT_TOKEN, env.WORKER_URL, env.TELEGRAM_WEBHOOK_SECRET);
+        if (res.ok) await env.BOT_KV.put('wh_set', '1');
+      }
+
       const listed = await env.STATEMENTS.list({ prefix: 'pdf/', limit: 200 });
       const chatIds = (env.ALLOWED_CHAT_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
       const dayAgo = Date.now() - 24 * 3600 * 1000;
