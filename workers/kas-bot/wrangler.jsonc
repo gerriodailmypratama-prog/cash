@@ -32,6 +32,7 @@
     "DB_SCHEMA": "cash",
     "WORKER_URL": "https://kas-bot.gerriodailmypratama.workers.dev",
     "TEXT_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-    "VISION_MODEL": "@cf/meta/llama-3.2-11b-vision-instruct"
+    "VISION_MODEL": "@cf/meta/llama-3.2-11b-vision-instruct",
+    "GEMINI_MODEL": "gemini-2.0-flash"
   }
 }

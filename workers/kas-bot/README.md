@@ -70,17 +70,24 @@ The worker registers itself. Once the secrets exist, either:
 Message your bot: `/start`, then `kopi 25rb pake cimb` or send a receipt photo.
 Confirm the card, tap **✅ Ya**, and check kas.gerriolab.com.
 
+## Parse provider (auto)
+- Default: **Cloudflare Workers AI** (free, no key).
+- Optional upgrade: set a `GEMINI_API_KEY` secret → the bot auto-switches to
+  **Google Gemini** (stronger receipt-photo vision), still free tier. Remove the
+  key to fall back to Workers AI. Model via `GEMINI_MODEL` var (default
+  `gemini-2.0-flash`).
+
 ## Config (`wrangler.jsonc` vars — non-secret)
 - `SUPABASE_URL` — project REST base.
 - `DB_SCHEMA` — `cash`.
 - `WORKER_URL` — this worker's public URL (used by self-registration).
 - `TEXT_MODEL` / `VISION_MODEL` — Workers AI models for note / receipt parsing.
+- `GEMINI_MODEL` — Gemini model used when `GEMINI_API_KEY` is set.
 
 ## Notes
 - No npm dependencies — pure Web APIs (`fetch`, `crypto`).
-- Parse runs on Workers AI free tier; every proposal is confirm-gated, so an
-  occasional miss is caught before it's written. Swap `TEXT_MODEL`/`VISION_MODEL`
-  to tune accuracy vs cost.
+- Every proposal is confirm-gated, so an occasional parse miss is caught before
+  it's written. Swap models to tune accuracy vs cost.
 - Strangers are silently ignored (only `ALLOWED_CHAT_IDS` are answered).
 - Pending confirmations + retry-dedup + statement-seen marks live in `BOT_KV`
   with short TTLs.

@@ -1,11 +1,14 @@
-// Parse engine on Cloudflare Workers AI (free tier, no external key). Turns a
-// free-text note ("makan 50rb pake cimb") or a receipt photo into a structured
-// transaction proposal.
+// Parse engine. Turns a free-text note ("makan 50rb pake cimb") or a receipt
+// photo into a structured transaction proposal.
+//
+// Provider is chosen automatically:
+//   - GEMINI_API_KEY set  -> Google Gemini (stronger receipt vision), still free tier.
+//   - otherwise           -> Cloudflare Workers AI (free, no key) as the fallback.
 //
 // Small models copy UUIDs unreliably, so accounts are presented with short
 // handles (a0, a1, ...) and the model returns handles; the worker resolves them
-// back to real ids and validates. The owner still confirms every proposal, so
-// an occasional miss is caught before anything is written.
+// back to real ids and validates. The owner confirms every proposal, so an
+// occasional miss is caught before anything is written.
 
 function buildHandles(ctx) {
   const list = ctx.accounts.map((a, i) => ({ h: `a${i}`, ...a }));
@@ -34,8 +37,8 @@ function prompt(lines, today) {
   ].join('\n');
 }
 
-// Workers AI shapes vary by model: some return { response: "text" }, the
-// OpenAI-compatible ones return { choices: [{ message: { content } }] }.
+// Workers AI shapes vary: some return { response: "text" }, the OpenAI-compatible
+// ones return { choices: [{ message: { content } }] }.
 function aiText(res) {
   if (typeof res?.response === 'string') return res.response;
   if (res?.choices?.[0]?.message?.content) return res.choices[0].message.content;
@@ -50,6 +53,12 @@ function extractJson(text) {
   const m = raw.match(/\{[\s\S]*\}/);
   if (!m) throw new Error('no json: ' + text.slice(0, 200));
   return JSON.parse(m[0]);
+}
+
+function bytesToBase64(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
 }
 
 const norm = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -68,27 +77,44 @@ function resolve(out, byHandle) {
   };
 }
 
-export async function parseInput(env, { text, imageBytes }, ctx, today) {
-  const { byHandle, lines } = buildHandles(ctx);
-  const sys = prompt(lines, today);
-  let out;
+async function viaGemini(env, sys, text, imageBytes) {
+  const model = env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const parts = [{ text: `${sys}${text ? '\n\nCatatan/perintah: ' + text : ''}${imageBytes ? '\n\nBaca struk pada gambar.' : ''}` }];
+  if (imageBytes) parts.push({ inline_data: { mime_type: 'image/jpeg', data: bytesToBase64(imageBytes) } });
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts }], generationConfig: { response_mime_type: 'application/json', temperature: 0 } })
+    }
+  );
+  const j = await r.json();
+  if (!r.ok) throw new Error(`gemini ${r.status}: ${JSON.stringify(j).slice(0, 300)}`);
+  return j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
 
+async function viaWorkersAI(env, sys, text, imageBytes) {
   if (imageBytes) {
     const res = await env.AI.run(env.VISION_MODEL || '@cf/meta/llama-3.2-11b-vision-instruct', {
       image: imageBytes,
       prompt: `${sys}\n\nBaca struk pada gambar.${text ? ' Catatan: ' + text : ''}`,
       max_tokens: 512
     });
-    out = extractJson(aiText(res));
-  } else {
-    const res = await env.AI.run(env.TEXT_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-      messages: [
-        { role: 'system', content: sys },
-        { role: 'user', content: text }
-      ],
-      max_tokens: 512
-    });
-    out = extractJson(aiText(res));
+    return aiText(res);
   }
-  return resolve(out, byHandle);
+  const res = await env.AI.run(env.TEXT_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+    messages: [{ role: 'system', content: sys }, { role: 'user', content: text }],
+    max_tokens: 512
+  });
+  return aiText(res);
+}
+
+export async function parseInput(env, { text, imageBytes }, ctx, today) {
+  const { byHandle, lines } = buildHandles(ctx);
+  const sys = prompt(lines, today);
+  const raw = env.GEMINI_API_KEY
+    ? await viaGemini(env, sys, text, imageBytes)
+    : await viaWorkersAI(env, sys, text, imageBytes);
+  return resolve(extractJson(raw), byHandle);
 }
