@@ -1,0 +1,6 @@
+{
+  "name": "kas-bot",
+  "private": true,
+  "type": "module",
+  "description": "Kas capture bot — Telegram webhook: receipt/text -> LLM parse -> confirm -> ledger"
+}

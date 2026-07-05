@@ -1,0 +1,32 @@
+{
+  // Kas capture bot (PR-CL26). Telegram webhook -> LLM parse -> confirm -> ledger.
+  // Also pings the owner on Telegram when a new statement lands in R2 (cron scan).
+  "name": "kas-bot",
+  "main": "index.js",
+  "compatibility_date": "2025-01-01",
+
+  // Pending-confirmation store + short-lived account cache + statement-seen marks.
+  // Create with:  npx wrangler kv namespace create kas_bot_kv
+  // then paste the returned id below.
+  "kv_namespaces": [
+    { "binding": "BOT_KV", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+  ],
+
+  // Same bucket the email pipe writes statements into (read-only use here).
+  "r2_buckets": [
+    { "binding": "STATEMENTS", "bucket_name": "kas-statements" }
+  ],
+
+  // Scan R2 for new statements every 15 min and ping the owner.
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+
+  // Non-secret config. Secrets (tokens/keys) are set with `wrangler secret put`
+  // — see README. NEVER put tokens or the service key in this file.
+  "vars": {
+    "SUPABASE_URL": "https://ryuwnsxwtwfmndnbysxw.supabase.co",
+    "DB_SCHEMA": "cash",
+    "MODEL": "claude-sonnet-5"
+  }
+}
