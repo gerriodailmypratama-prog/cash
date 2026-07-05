@@ -14,6 +14,18 @@ async function call(token, method, body) {
   return j;
 }
 
+// Point Telegram at this worker. Idempotent — safe to call repeatedly. The
+// worker registers ITSELF (it already holds the token in env), so the owner
+// never has to run a curl or hand the bot token to anyone.
+export function setWebhook(token, url, secretToken) {
+  return call(token, 'setWebhook', {
+    url,
+    secret_token: secretToken,
+    allowed_updates: ['message', 'callback_query'],
+    drop_pending_updates: true
+  });
+}
+
 export function sendMessage(token, chatId, text, extra = {}) {
   return call(token, 'sendMessage', {
     chat_id: chatId,

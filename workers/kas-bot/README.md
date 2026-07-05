@@ -58,19 +58,22 @@ npx wrangler secret put SUPABASE_SERVICE_KEY      # 🔴 Supabase → Settings �
 > password: only ever paste it into `wrangler secret put`, never into a file,
 > chat, or the repo.
 
+Secrets can also be added point-and-click in the Cloudflare dashboard:
+**Workers & Pages → kas-bot → Settings → Variables and secrets → Add**, type set
+to **Secret (encrypt)**. Use the exact names above.
+
 ### 6. Deploy
 ```
 npx wrangler deploy
 ```
-Note the deployed URL (e.g. `https://kas-bot.<subdomain>.workers.dev`).
+Deployed URL: `https://kas-bot.gerriodailmypratama.workers.dev` (also set as the
+`WORKER_URL` var). Deploy can run before secrets are set — the worker just stays
+idle until they exist.
 
-### 7. Register the webhook
-```
-curl "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
-  -d "url=https://kas-bot.<subdomain>.workers.dev" \
-  -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
-```
-Expect `{"ok":true,...}`.
+### 7. Register the webhook (no curl needed)
+The worker registers itself. Once the secrets are set, either:
+- visit `https://kas-bot.gerriodailmypratama.workers.dev/setup?secret=<TELEGRAM_WEBHOOK_SECRET>` once, **or**
+- do nothing — the 15-min cron auto-registers on its next tick.
 
 ### 8. Test
 Message your bot: `/start`, then try `kopi 25rb pake cimb` or send a receipt

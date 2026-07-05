@@ -9,7 +9,7 @@
   // Create with:  npx wrangler kv namespace create kas_bot_kv
   // then paste the returned id below.
   "kv_namespaces": [
-    { "binding": "BOT_KV", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+    { "binding": "BOT_KV", "id": "2430f1abdd2e4541b44e55b802a7c05b" }
   ],
 
   // Same bucket the email pipe writes statements into (read-only use here).
@@ -27,6 +27,7 @@
   "vars": {
     "SUPABASE_URL": "https://ryuwnsxwtwfmndnbysxw.supabase.co",
     "DB_SCHEMA": "cash",
-    "MODEL": "claude-sonnet-5"
+    "MODEL": "claude-sonnet-5",
+    "WORKER_URL": "https://kas-bot.gerriodailmypratama.workers.dev"
   }
 }
