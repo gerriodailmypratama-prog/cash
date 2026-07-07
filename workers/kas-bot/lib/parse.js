@@ -46,7 +46,7 @@ function aiText(res) {
   return '';
 }
 
-function extractJson(text) {
+export function extractJson(text) {
   if (!text) throw new Error('empty AI response');
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const raw = fenced ? fenced[1] : text;
@@ -77,16 +77,16 @@ function resolve(out, byHandle) {
   };
 }
 
-async function viaGemini(env, sys, text, imageBytes) {
+async function viaGemini(env, sys, text, imageBytes, maxTokens) {
   const model = env.GEMINI_MODEL || 'gemini-2.0-flash';
-  const parts = [{ text: `${sys}${text ? '\n\nCatatan/perintah: ' + text : ''}${imageBytes ? '\n\nBaca struk pada gambar.' : ''}` }];
+  const parts = [{ text: `${sys}${text ? '\n\n' + text : ''}${imageBytes ? '\n\nBaca gambar.' : ''}` }];
   if (imageBytes) parts.push({ inline_data: { mime_type: 'image/jpeg', data: bytesToBase64(imageBytes) } });
   const r = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${env.GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts }], generationConfig: { response_mime_type: 'application/json', temperature: 0 } })
+      body: JSON.stringify({ contents: [{ parts }], generationConfig: { response_mime_type: 'application/json', temperature: 0, maxOutputTokens: maxTokens } })
     }
   );
   const j = await r.json();
@@ -94,45 +94,41 @@ async function viaGemini(env, sys, text, imageBytes) {
   return j?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
-async function viaWorkersAI(env, sys, text, imageBytes) {
+async function viaWorkersAI(env, sys, text, imageBytes, maxTokens) {
   if (imageBytes) {
     const res = await env.AI.run(env.VISION_MODEL || '@cf/meta/llama-3.2-11b-vision-instruct', {
-      image: imageBytes,
-      prompt: `${sys}\n\nBaca struk pada gambar.${text ? ' Catatan: ' + text : ''}`,
-      max_tokens: 512
+      image: imageBytes, prompt: `${sys}\n\n${text || 'Baca gambar.'}`, max_tokens: maxTokens
     });
     return aiText(res);
   }
   const res = await env.AI.run(env.TEXT_MODEL || '@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-    messages: [{ role: 'system', content: sys }, { role: 'user', content: text }],
-    max_tokens: 512
+    messages: [{ role: 'system', content: sys }, { role: 'user', content: text }], max_tokens: maxTokens
   });
   return aiText(res);
 }
 
+// Provider-agnostic completion: prefer Gemini when a key is set, fall back to
+// the free Workers AI on any error. Returns { text, provider }.
+// geminiOnly: for statement parsing (monthly, low volume) — don't fall back to
+// the weaker free model on a wrong parse; error so the caller can retry later.
+export async function aiComplete(env, { system, user, imageBytes, maxTokens = 512, geminiOnly = false }) {
+  const run = (p) => p === 'gemini'
+    ? viaGemini(env, system, user, imageBytes, maxTokens)
+    : viaWorkersAI(env, system, user, imageBytes, maxTokens);
+  if (env.GEMINI_API_KEY) {
+    try { return { text: await run('gemini'), provider: 'gemini' }; }
+    catch (e) {
+      console.log('gemini failed: ' + (e?.message || e));
+      if (geminiOnly) throw e;
+      return { text: await run('workers-ai'), provider: 'workers-ai' };
+    }
+  }
+  if (geminiOnly) throw new Error('no GEMINI_API_KEY set');
+  return { text: await run('workers-ai'), provider: 'workers-ai' };
+}
+
 export async function parseInput(env, { text, imageBytes }, ctx, today) {
   const { byHandle, lines } = buildHandles(ctx);
-  const sys = prompt(lines, today);
-
-  const run = async (provider) => {
-    const raw = provider === 'gemini'
-      ? await viaGemini(env, sys, text, imageBytes)
-      : await viaWorkersAI(env, sys, text, imageBytes);
-    return extractJson(raw);
-  };
-
-  // Prefer Gemini when a key is set, but never let its rate limits / hiccups
-  // break capture: fall back to the free Workers AI on any error.
-  let out;
-  if (env.GEMINI_API_KEY) {
-    try {
-      out = await run('gemini');
-    } catch (e) {
-      console.log('gemini failed -> workers-ai fallback: ' + (e?.message || e));
-      out = await run('workers-ai');
-    }
-  } else {
-    out = await run('workers-ai');
-  }
-  return resolve(out, byHandle);
+  const { text: raw } = await aiComplete(env, { system: prompt(lines, today), user: text, imageBytes });
+  return resolve(extractJson(raw), byHandle);
 }

@@ -17,7 +17,7 @@ const rest = (env, path) => `${env.SUPABASE_URL}/rest/v1/${path}`;
 // Pots (entities) + accounts, shaped for the LLM to map against. Cached in KV
 // for 5 min so we're not hitting the DB on every message.
 export async function accountContext(env) {
-  const cached = await env.BOT_KV.get('acct_ctx', 'json');
+  const cached = await env.BOT_KV.get('acct_ctx2', 'json');
   if (cached && cached.exp > Date.now()) return cached.data;
 
   const prof = { 'Accept-Profile': env.DB_SCHEMA };
@@ -35,12 +35,13 @@ export async function accountContext(env) {
     accounts: accts.map((a) => ({
       id: a.id,
       pot: byEnt.get(a.entity_id) || '?',
+      code: a.code,
       name: a.name,
       type: a.type,
       subtype: a.subtype
     }))
   };
-  await env.BOT_KV.put('acct_ctx', JSON.stringify({ exp: Date.now() + 5 * 60 * 1000, data }));
+  await env.BOT_KV.put('acct_ctx2', JSON.stringify({ exp: Date.now() + 5 * 60 * 1000, data }));
   return data;
 }
 
@@ -69,6 +70,16 @@ export function buildTx(proposal, ctx) {
       p_fx_rate: 1
     }
   };
+}
+
+// Has this statement already been imported? (memo tag like "CIMB-JUN26:%")
+export async function tagExists(env, tag) {
+  const r = await fetch(
+    rest(env, `transactions_active?select=id&memo=ilike.${encodeURIComponent(tag + ':%')}&limit=1`),
+    { headers: headers(env, { 'Accept-Profile': env.DB_SCHEMA }) }
+  );
+  const j = await r.json().catch(() => []);
+  return Array.isArray(j) && j.length > 0;
 }
 
 export async function postTransaction(env, tx) {

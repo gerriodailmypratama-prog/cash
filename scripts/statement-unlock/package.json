@@ -1,0 +1,6 @@
+{
+  "name": "kas-statement-unlock",
+  "private": true,
+  "type": "module",
+  "dependencies": { "pdf-parse": "^2.1.1" }
+}

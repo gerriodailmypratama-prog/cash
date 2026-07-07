@@ -13,6 +13,7 @@
 import { sendMessage, setWebhook, confirmKeyboard, answerCallback, editReplyMarkup, getFileBytes } from './lib/telegram.js';
 import { accountContext, buildTx, postTransaction } from './lib/ledger.js';
 import { parseInput } from './lib/parse.js';
+import { nextStatement, ingestStatementText, importStatement } from './lib/statement.js';
 
 const rupiah = (n) => 'Rp ' + Math.round(Number(n)).toLocaleString('id-ID');
 const today = () => new Date().toISOString().slice(0, 10);
@@ -79,8 +80,28 @@ async function handleCallback(env, cb) {
   const chatId = cb.message?.chat?.id;
   const [action, id] = (cb.data || '').split(':');
   const token = env.TELEGRAM_BOT_TOKEN;
-  const raw = id && (await env.BOT_KV.get(`pend:${id}`, 'json'));
 
+  // Statement batch import (Fase B): sok = import all, sno = skip.
+  if (action === 'sok' || action === 'sno') {
+    const batch = id && (await env.BOT_KV.get(`stmtpend:${id}`, 'json'));
+    if (!batch) { await answerCallback(token, cb.id, 'Sudah kadaluarsa / diproses.'); return; }
+    await editReplyMarkup(token, chatId, cb.message.message_id);
+    if (action === 'sno') {
+      await env.BOT_KV.put(`stmt:${batch.key}`, 'skipped');
+      await env.BOT_KV.delete(`stmtpend:${id}`);
+      await answerCallback(token, cb.id, 'Dilewati');
+      await sendMessage(token, chatId, '❌ Statement dilewati.');
+      return;
+    }
+    await answerCallback(token, cb.id, 'Mengimpor...');
+    const res = await importStatement(env, batch);
+    await env.BOT_KV.put(`stmt:${batch.key}`, 'done');
+    await env.BOT_KV.delete(`stmtpend:${id}`);
+    await sendMessage(token, chatId, res.msg);
+    return;
+  }
+
+  const raw = id && (await env.BOT_KV.get(`pend:${id}`, 'json'));
   if (!raw) {
     await answerCallback(token, cb.id, 'Sudah kadaluarsa / diproses.');
     return;
@@ -164,6 +185,20 @@ export default {
         { status: res.ok ? 200 : 500 });
     }
 
+    // Statement pipeline (Fase B). A scheduled GitHub Action unlocks the
+    // DOB-locked PDF (pdf.js can't run in Workers) and drives these two
+    // endpoints; both are gated by the webhook secret.
+    if (url.pathname === '/stmt/next' && request.method === 'GET') {
+      if (url.searchParams.get('secret') !== env.TELEGRAM_WEBHOOK_SECRET) return new Response('forbidden', { status: 403 });
+      return nextStatement(env);
+    }
+    if (url.pathname === '/stmt/text' && request.method === 'POST') {
+      if (url.searchParams.get('secret') !== env.TELEGRAM_WEBHOOK_SECRET) return new Response('forbidden', { status: 403 });
+      let body;
+      try { body = await request.json(); } catch { return new Response('bad', { status: 400 }); }
+      return ingestStatementText(env, body, url.searchParams.get('dry') === '1');
+    }
+
     if (request.method !== 'POST') return new Response('kas-bot', { status: 200 });
     if (request.headers.get('x-telegram-bot-api-secret-token') !== env.TELEGRAM_WEBHOOK_SECRET) {
       return new Response('forbidden', { status: 403 });
@@ -191,35 +226,13 @@ export default {
     return new Response('ok');
   },
 
-  // Cron: ping the owner when a new statement PDF lands in R2. Fase B will
-  // auto-unlock + parse + propose; for now this just surfaces it fast.
+  // Cron: keep the Telegram webhook pointed at us (self-heal). Statement
+  // notifications are now driven by the GitHub Action -> /stmt/text flow.
   async scheduled(event, env, ctx) {
     ctx.waitUntil((async () => {
-      // Self-heal: make sure Telegram is pointed at us. Fires on the first cron
-      // tick after the owner sets the secrets — so setup finishes on its own
-      // even if they never visit /setup.
       if (env.TELEGRAM_BOT_TOKEN && env.WORKER_URL && !(await env.BOT_KV.get('wh_set'))) {
         const res = await setWebhook(env.TELEGRAM_BOT_TOKEN, env.WORKER_URL, env.TELEGRAM_WEBHOOK_SECRET);
         if (res.ok) await env.BOT_KV.put('wh_set', '1');
-      }
-
-      const listed = await env.STATEMENTS.list({ prefix: 'pdf/', limit: 200 });
-      const chatIds = (env.ALLOWED_CHAT_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
-      const dayAgo = Date.now() - 24 * 3600 * 1000;
-      for (const obj of listed.objects || []) {
-        const seenKey = `seen:${obj.key}`;
-        if (await env.BOT_KV.get(seenKey)) continue;
-        await env.BOT_KV.put(seenKey, '1'); // mark first, so a send failure never spams
-        // Only ping for genuinely fresh drops; older backlog is marked silently.
-        if (new Date(obj.uploaded).getTime() < dayAgo) continue;
-        const from = obj.customMetadata?.from || '';
-        const name = obj.key.replace(/^pdf\//, '');
-        for (const cid of chatIds) {
-          await sendMessage(
-            env.TELEGRAM_BOT_TOKEN, cid,
-            `📄 <b>Statement baru masuk</b>\n<code>${name}</code>${from ? `\ndari ${from}` : ''}\n\n<i>Auto-import (Fase B) nyusul — sementara ini gua kabarin dulu.</i>`
-          );
-        }
       }
     })());
   }
