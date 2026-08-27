@@ -51,6 +51,7 @@
     const d = today.getDate();
     const dim = daysInMonth(today.getFullYear(), today.getMonth());
     const sd = Math.min(statementDay, dim);
+    if (sd === d) return 0;                         // closes TODAY — a swipe can land on this bill; worst float, rank last
     if (sd > d) return sd - d;                      // closes later this month
     const dimNext = daysInMonth(today.getFullYear(), today.getMonth() + 1);
     return (dim - d) + Math.min(statementDay, dimNext); // wraps to next month
@@ -81,7 +82,7 @@
   let ranking = $derived(
     cards
       .map((c) => ({ ...c, floatDays: daysUntilNextStatement(c.statement_day) }))
-      .filter((c) => c.floatDays != null && !c.over_limit && Number(c.credit_limit || 0) > 0)
+      .filter((c) => c.floatDays != null && c.floatDays > 0 && !c.over_limit && Number(c.credit_limit || 0) > 0)
       .sort((a, b) => b.floatDays - a.floatDays)
   );
   let bestCard = $derived(ranking[0] ?? null);

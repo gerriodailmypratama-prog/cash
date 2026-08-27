@@ -20,7 +20,7 @@
     errorMsg = '';
     const [c, acc] = await Promise.all([
       supabase.from('credit_card_status').select('*').eq('account_id', cardId).maybeSingle(),
-      supabase.from('accounts_active').select('id, code, name')
+      supabase.from('accounts_active').select('id, code, name, type')
     ]);
     if (c.error) { errorMsg = c.error.message; loading = false; return; }
     card = c.data;
@@ -38,11 +38,14 @@
     rows = (data ?? []).map((t) => {
       const spend = t.from_account_id === cardId; // money left the card = a charge
       const other = accById.get(spend ? t.to_account_id : t.from_account_id);
+      // Counterpart = Owner Equity means "saldo awal" / "samakan tagihan" —
+      // bookkeeping adjustments, not real spending or payments.
+      const isAdjust = other?.type === 'EQUITY';
       return {
         ...t,
         spend,
-        otherLabel: accountLabel(other) || '—',
-        signed: spend ? Number(t.amount) : -Number(t.amount) // charge +, payment −
+        isAdjust,
+        otherLabel: isAdjust ? 'penyesuaian saldo' : accountLabel(other) || '—'
       };
     });
     loading = false;
@@ -52,17 +55,18 @@
     if (id) load(id);
   });
 
-  // category breakdown of charges (non-void, spend only)
+  // category breakdown of charges (non-void, spend only; adjustments excluded —
+  // saldo awal / "samakan tagihan" are bookkeeping, not spending)
   let breakdown = $derived.by(() => {
     const m = new Map();
     for (const t of rows) {
-      if (!t.spend || t.status === 'void') continue;
+      if (!t.spend || t.status === 'void' || t.isAdjust) continue;
       const k = t.otherLabel;
       m.set(k, (m.get(k) || 0) + Number(t.amount));
     }
     // refunds reduce their category
     for (const t of rows) {
-      if (t.spend || t.status === 'void') continue;
+      if (t.spend || t.status === 'void' || t.isAdjust) continue;
       if ((t.memo || '').toLowerCase().includes('refund')) {
         const k = t.otherLabel;
         if (m.has(k)) m.set(k, m.get(k) - Number(t.amount));
@@ -151,10 +155,11 @@
             <li class="row" class:voided={t.status === 'void'}>
               <div class="t-main">
                 <span class="t-desc">{t.memo || (t.spend ? 'Belanja' : 'Pembayaran')}</span>
-                <span class="t-sub">{t.date} · {t.spend ? 'ke' : 'dari'} {emojiFor(t.otherLabel)} {t.otherLabel}
+                <span class="t-sub">{t.date} ·
+                  {#if t.isAdjust}⚖️ {t.otherLabel}{:else}{t.spend ? 'ke' : 'dari'} {emojiFor(t.otherLabel)} {t.otherLabel}{/if}
                   {#if t.status === 'void'}· <span class="v">void</span>{/if}</span>
               </div>
-              <span class="t-amt num" class:amount-pos={!t.spend}>
+              <span class="t-amt num" class:amount-pos={!t.spend && !t.isAdjust} class:adj={t.isAdjust}>
                 {t.spend ? '+' : '−'} Rp {rupiah(Math.abs(t.amount))}
               </span>
             </li>
@@ -273,4 +278,5 @@
   .t-sub { color: var(--text-dim); font-size: 0.76rem; }
   .t-sub .v { color: var(--danger); font-weight: 600; }
   .t-amt { font-weight: 600; font-size: 0.9rem; white-space: nowrap; }
+  .t-amt.adj { color: var(--text-dim); font-weight: 500; }
 </style>
